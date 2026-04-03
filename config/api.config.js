@@ -2,22 +2,34 @@
  * API 配置文件
  * 统一管理服务地址、接口路径等配置信息
  * 便于维护和修改，实现低耦合
+ * 注意：开源仓库默认不包含真实生产地址和真实 Webhook，
+ * 如需连接私有服务，请自行替换下方生产环境配置。
  */
+
+const OPEN_SOURCE_PROD_DEFAULTS = {
+  // 开源仓库默认不指向真实生产服务，避免泄露私有基础设施。
+  API_BASE_URL: 'https://api.example.invalid/api',
+  WS_BASE_URL: 'https://api.example.invalid/ws',
+  CLIENT_BASE_URL: 'http://localhost:1519',
+  CRAWLER_MATERIAL_UPLOAD_URL: 'https://api.example.invalid/api/crawler/material/add',
+  FEISHU_WEBHOOK_URL: '',
+  LOCATION_ENDPOINT: 'https://ipapi.co/json/',
+};
 
 // 生产环境配置
 const PROD_CONFIG = {
   // API 基础地址
-  API_BASE_URL: 'https://1s.design:1520/api',
+  API_BASE_URL: OPEN_SOURCE_PROD_DEFAULTS.API_BASE_URL,
   // WebSocket 基础地址
-  WS_BASE_URL: 'https://1s.design:1520/ws',
+  WS_BASE_URL: OPEN_SOURCE_PROD_DEFAULTS.WS_BASE_URL,
   // 本地客户端地址（Electron）
-  CLIENT_BASE_URL: 'http://localhost:1519',
+  CLIENT_BASE_URL: OPEN_SOURCE_PROD_DEFAULTS.CLIENT_BASE_URL,
   // 爬虫素材上传接口
-  CRAWLER_MATERIAL_UPLOAD_URL: 'https://1s.design:1520/api/crawler/material/add',
+  CRAWLER_MATERIAL_UPLOAD_URL: OPEN_SOURCE_PROD_DEFAULTS.CRAWLER_MATERIAL_UPLOAD_URL,
   // 飞书 Webhook（可选）
-  FEISHU_WEBHOOK_URL: 'https://open.feishu.cn/open-apis/bot/v2/hook/4040ef7e-9776-4010-bf53-c30e4451b449',
+  FEISHU_WEBHOOK_URL: OPEN_SOURCE_PROD_DEFAULTS.FEISHU_WEBHOOK_URL,
   // 位置信息接口
-  LOCATION_ENDPOINT: 'https://ipapi.co/json/',
+  LOCATION_ENDPOINT: OPEN_SOURCE_PROD_DEFAULTS.LOCATION_ENDPOINT,
 };
 
 // 开发环境配置
@@ -31,7 +43,7 @@ const DEV_CONFIG = {
   // 爬虫素材上传接口
   CRAWLER_MATERIAL_UPLOAD_URL: 'http://localhost:1520/api/crawler/material/add',
   // 飞书 Webhook（可选）
-  FEISHU_WEBHOOK_URL: 'https://open.feishu.cn/open-apis/bot/v2/hook/4040ef7e-9776-4010-bf53-c30e4451b449',
+  FEISHU_WEBHOOK_URL: '',
   // 位置信息接口
   LOCATION_ENDPOINT: 'https://ipapi.co/json/',
 };

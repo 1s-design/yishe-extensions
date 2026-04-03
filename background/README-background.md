@@ -8,7 +8,7 @@
   - 整个插件后台逻辑的 **入口文件**
   - 主要职责：
     - 加载依赖（`socket.io`、`handlers/base.js`、`handlers/index.js`）
-    - 管理与 **后端 WebSocket** 的连接（1s.design:1520）
+    - 管理与 **后端 WebSocket** 的连接（可配置远程服务）
     - 管理与 **本地 Electron 客户端** 的 WebSocket 连接（localhost:1519）
     - 维护连接状态（`wsState` / `clientWsState`），并广播给前端（popup 等）
     - 处理全局生命周期事件：`onInstalled`、`onStartup`、`storage.onChanged` 等

@@ -52,6 +52,12 @@ core/
 4. 选择 `core` 文件夹
 5. 完成！插件会显示在浏览器工具栏
 
+## 后端配置
+
+- 开源仓库默认不会内置真实生产 API、WebSocket 地址和第三方 Webhook。
+- 如需连接你的远程服务，请修改 `config/api.config.js` 中的 `PROD_CONFIG`。
+- 本地开发模式默认使用 `http://localhost:1520/api` 和 `http://localhost:1520/ws`。
+
 ## 使用方法
 
 1. **打开任意网页**

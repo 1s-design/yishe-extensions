@@ -3,7 +3,7 @@
 // -------------------------------------------------------------
 // 职责概览（记住这 4 点就够了）：
 // 1）加载依赖（socket.io + handlers）
-// 2）管理「服务端 WebSocket」连接状态（1s.design 后端）
+// 2）管理「服务端 WebSocket」连接状态（远程后端服务）
 // 3）管理「本地客户端 WebSocket」连接状态（本地 Electron 客户端）
 // 4）处理全局事件（安装、启动、存储变更、右键菜单等）
 // =============================================================
@@ -70,8 +70,10 @@ let scriptsLoaded = {
   }
 })();
 
-// 从配置文件获取默认地址（如果配置文件加载失败，使用 fallback）
-const DEFAULT_PROD_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.WS_BASE_URL) || 'https://1s.design:1520/ws';
+const OPEN_SOURCE_REMOTE_WS_ENDPOINT = 'https://api.example.invalid/ws';
+
+// 从配置文件获取默认地址（如果配置文件加载失败，使用开源安全 fallback）
+const DEFAULT_PROD_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.WS_BASE_URL) || OPEN_SOURCE_REMOTE_WS_ENDPOINT;
 const DEFAULT_DEV_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.DEV_CONFIG?.WS_BASE_URL) || 'http://localhost:1520/ws';
 const DEFAULT_WS_ENDPOINT = DEFAULT_PROD_WS_ENDPOINT;
 // 本地 Electron 客户端固定地址（不包含路径，路径由 Socket.IO 配置指定）
@@ -85,8 +87,8 @@ const STORAGE_WS_BASE_URL_KEY = 'wsBaseUrl';
 const HEARTBEAT_INTERVAL = 15000;
 const HEARTBEAT_TIMEOUT = 10000;
 
-// 从配置文件获取 URL（如果配置文件加载失败，使用 fallback）
-const FEISHU_WEBHOOK_URL = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.FEISHU_WEBHOOK_URL) || 'https://open.feishu.cn/open-apis/bot/v2/hook/4040ef7e-9776-4010-bf53-c30e4451b449';
+// 从配置文件获取 URL（如果配置文件加载失败，保持为空，避免误发到真实第三方服务）
+const FEISHU_WEBHOOK_URL = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.FEISHU_WEBHOOK_URL) || '';
 const textEncoder = new TextEncoder();
 
 const CLIENT_SOURCE = 'yishe-extension';
@@ -185,6 +187,26 @@ function serializeError(error) {
   } catch (e) {
     return String(error);
   }
+}
+
+function normalizeServiceUrl(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function isOpenSourcePlaceholderUrl(value) {
+  const normalized = normalizeServiceUrl(value).toLowerCase();
+  return !normalized || normalized.includes('example.invalid');
+}
+
+function getWebsocketConfigError(endpoint) {
+  const normalized = normalizeServiceUrl(endpoint);
+  if (!normalized) {
+    return '远程 WebSocket 地址未配置，请先在 config/api.config.js 中填写真实服务地址';
+  }
+  if (isOpenSourcePlaceholderUrl(normalized)) {
+    return '当前远程 WebSocket 仍是开源默认占位地址，请先在 config/api.config.js 中替换为真实服务地址';
+  }
+  return '';
 }
 
 // guessExtension 和 uploadMaterialToServer 已迁移到 handlers/base.js
@@ -1054,6 +1076,19 @@ async function initWebsocket() {
     return;
   }
 
+  const normalizedEndpoint = normalizeServiceUrl(wsEndpoint);
+  const endpointConfigError = getWebsocketConfigError(normalizedEndpoint);
+  if (endpointConfigError) {
+    wsEndpoint = normalizedEndpoint;
+    log('跳过远程 WebSocket 连接:', endpointConfigError);
+    updateWsState({
+      status: 'error',
+      lastError: endpointConfigError,
+      retryCount: 0,
+    });
+    return;
+  }
+
   const [metadata, authState] = await Promise.all([
     ensureClientMetadata(),
     storageGet([AUTH_TOKEN_KEY]),
@@ -1076,6 +1111,7 @@ async function initWebsocket() {
     retryCount: 0,
   });
 
+  wsEndpoint = normalizedEndpoint;
   log('开始连接到 WebSocket:', wsEndpoint);
 
   socket = io(wsEndpoint, {

@@ -33,14 +33,17 @@ const STORAGE_KEYS = {
   DATA_SCOPE_USER_ID: 'dataScopeUserId',
 };
 
+const OPEN_SOURCE_REMOTE_API_BASE_URL = 'https://api.example.invalid/api';
+const OPEN_SOURCE_REMOTE_WS_BASE_URL = 'https://api.example.invalid/ws';
+
 const DEFAULT_CONFIG = ApiConfig ? {
   PROD_API_BASE_URL: ApiConfig.PROD_CONFIG.API_BASE_URL,
   PROD_WS_BASE_URL: ApiConfig.PROD_CONFIG.WS_BASE_URL,
   DEV_API_BASE_URL: ApiConfig.DEV_CONFIG.API_BASE_URL,
   DEV_WS_BASE_URL: ApiConfig.DEV_CONFIG.WS_BASE_URL,
 } : {
-  PROD_API_BASE_URL: 'https://1s.design:1520/api',
-  PROD_WS_BASE_URL: 'https://1s.design:1520/ws',
+  PROD_API_BASE_URL: OPEN_SOURCE_REMOTE_API_BASE_URL,
+  PROD_WS_BASE_URL: OPEN_SOURCE_REMOTE_WS_BASE_URL,
   DEV_API_BASE_URL: 'http://localhost:1520/api',
   DEV_WS_BASE_URL: 'http://localhost:1520/ws',
 };
@@ -86,6 +89,34 @@ function isPlainObject(value) {
 
 function isFormData(value) {
   return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
+function normalizeServiceUrl(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function isOpenSourcePlaceholderUrl(value) {
+  const normalized = normalizeServiceUrl(value).toLowerCase();
+  return !normalized || normalized.includes('example.invalid');
+}
+
+function isConfiguredServiceUrl(value) {
+  return !isOpenSourcePlaceholderUrl(value);
+}
+
+function formatServiceUrlForDisplay(value) {
+  return isConfiguredServiceUrl(value)
+    ? normalizeServiceUrl(value)
+    : '未配置（开源默认占位值）';
+}
+
+function assertServiceUrlConfigured(value, label = '服务地址') {
+  if (isConfiguredServiceUrl(value)) {
+    return;
+  }
+  throw new Error(
+    `${label} 未配置，请先在 config/api.config.js 中填写真实生产地址，或切换到开发模式连接本地服务`,
+  );
 }
 
 function hasHeader(headers, headerName) {
@@ -233,12 +264,12 @@ async function setDevMode(enabled) {
 
 async function setApiBaseUrl(url, isDev = false) {
   const key = isDev ? STORAGE_KEYS.DEV_API_BASE_URL : STORAGE_KEYS.API_BASE_URL;
-  await storageSet({ [key]: url });
+  await storageSet({ [key]: normalizeServiceUrl(url) });
 }
 
 async function setWsBaseUrl(url, isDev = false) {
   const key = isDev ? STORAGE_KEYS.DEV_WS_BASE_URL : STORAGE_KEYS.WS_BASE_URL;
-  await storageSet({ [key]: url });
+  await storageSet({ [key]: normalizeServiceUrl(url) });
 }
 
 async function getToken() {
@@ -370,8 +401,13 @@ async function apiRequest(url, options = {}) {
     getRequestContext(),
   ]);
 
+  const isAbsoluteUrl = url.startsWith('http://') || url.startsWith('https://');
+  if (!isAbsoluteUrl) {
+    assertServiceUrlConfigured(baseUrl, 'API 基础地址');
+  }
+
   let fullUrl;
-  if (url.startsWith('http://') || url.startsWith('https://')) {
+  if (isAbsoluteUrl) {
     fullUrl = url;
   } else {
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
@@ -432,6 +468,7 @@ async function apiRequest(url, options = {}) {
 
 async function login(username, password, rememberMe = false) {
   const apiBaseUrl = await getApiBaseUrl();
+  assertServiceUrlConfigured(apiBaseUrl, 'API 基础地址');
   const loginPath = ApiConfig?.API_ENDPOINTS?.AUTH?.LOGIN || '/auth/login';
   const url = `${apiBaseUrl}${loginPath}`;
 
@@ -546,6 +583,8 @@ const exportedApiUtils = {
   DEFAULT_CONFIG,
   STORAGE_KEYS,
   DATA_SCOPE_MODES,
+  isConfiguredServiceUrl,
+  formatServiceUrlForDisplay,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

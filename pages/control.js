@@ -140,8 +140,8 @@
         const isDev = await ApiUtils.isDevMode();
         toggle.checked = isDev;
         stateLabel.textContent = isDev ? '开发模式' : '生产模式';
-        apiLabel.textContent = await ApiUtils.getApiBaseUrl();
-        wsLabel.textContent = await ApiUtils.getWsBaseUrl();
+        apiLabel.textContent = ApiUtils.formatServiceUrlForDisplay(await ApiUtils.getApiBaseUrl());
+        wsLabel.textContent = ApiUtils.formatServiceUrlForDisplay(await ApiUtils.getWsBaseUrl());
       }
 
       toggle.addEventListener('change', async () => {
