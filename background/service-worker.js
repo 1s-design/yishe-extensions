@@ -37,6 +37,14 @@ let scriptsLoaded = {
       scriptsLoaded.error = (scriptsLoaded.error || '') + ' API 配置文件加载失败: ' + e.message;
     }
 
+    try {
+      importScripts('../utils/api.js');
+      simpleLog('API 工具已加载');
+    } catch (e) {
+      console.error('[Core][WS] API 工具加载失败:', e);
+      scriptsLoaded.error = (scriptsLoaded.error || '') + ' API 工具加载失败: ' + e.message;
+    }
+
     // 1. 加载 socket.io 客户端（用于和服务端、本地客户端建立 WebSocket 连接）
     try {
       importScripts('../libs/socket.io.min.js');
@@ -67,7 +75,8 @@ const DEFAULT_PROD_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?
 const DEFAULT_DEV_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.DEV_CONFIG?.WS_BASE_URL) || 'http://localhost:1520/ws';
 const DEFAULT_WS_ENDPOINT = DEFAULT_PROD_WS_ENDPOINT;
 // 本地 Electron 客户端固定地址（不包含路径，路径由 Socket.IO 配置指定）
-const CLIENT_WS_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.CLIENT_BASE_URL) || 'http://localhost:1519';
+const DEFAULT_PROD_CLIENT_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.CLIENT_BASE_URL) || 'http://localhost:1519';
+const DEFAULT_DEV_CLIENT_ENDPOINT = (typeof self !== 'undefined' && self.ApiConfig?.DEV_CONFIG?.CLIENT_BASE_URL) || DEFAULT_PROD_CLIENT_ENDPOINT;
 const STORAGE_ENDPOINT_KEY = 'wsEndpoint';
 const STORAGE_ENDPOINT_CUSTOM_KEY = 'wsEndpointCustom';
 const STORAGE_DEV_MODE_KEY = 'devMode';
@@ -77,7 +86,6 @@ const HEARTBEAT_INTERVAL = 15000;
 const HEARTBEAT_TIMEOUT = 10000;
 
 // 从配置文件获取 URL（如果配置文件加载失败，使用 fallback）
-const SERVER_UPLOAD_URL = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.CRAWLER_MATERIAL_UPLOAD_URL) || 'https://1s.design:1520/api/crawler/material/add';
 const FEISHU_WEBHOOK_URL = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.FEISHU_WEBHOOK_URL) || 'https://open.feishu.cn/open-apis/bot/v2/hook/4040ef7e-9776-4010-bf53-c30e4451b449';
 const textEncoder = new TextEncoder();
 
@@ -111,6 +119,7 @@ let clientHeartbeatTimer = null;
 let clientHeartbeatTimeoutTimer = null;
 let clientLastPingTimestampMs = null;
 let clientWebsocketInitPromise = null;
+let clientWsEndpoint = DEFAULT_PROD_CLIENT_ENDPOINT;
 
 // 对「服务端 WebSocket」的最新状态快照
 const wsState = {
@@ -129,7 +138,7 @@ const wsState = {
 // 对「本地客户端 WebSocket」的最新状态快照
 const clientWsState = {
   status: 'disconnected',
-  endpoint: CLIENT_WS_ENDPOINT,
+  endpoint: clientWsEndpoint,
   connectedAt: null,
   lastPingAt: null,
   lastPongAt: null,
@@ -142,6 +151,25 @@ const clientWsState = {
 // 统一日志输出，方便过滤
 function log(...args) {
   console.log('[Core][WS]', ...args);
+}
+
+function getApiUtils() {
+  return typeof self !== 'undefined' ? self.ApiUtils : null;
+}
+
+async function apiRequestWithContext(url, options = {}) {
+  const apiUtils = getApiUtils();
+  if (!apiUtils?.apiRequest) {
+    throw new Error('ApiUtils 不可用，请检查 utils/api.js 是否已正确加载');
+  }
+  return apiUtils.apiRequest(url, options);
+}
+
+async function getEffectiveClientBaseUrl() {
+  const result = await storageGet([STORAGE_DEV_MODE_KEY]);
+  return Boolean(result[STORAGE_DEV_MODE_KEY])
+    ? DEFAULT_DEV_CLIENT_ENDPOINT
+    : DEFAULT_PROD_CLIENT_ENDPOINT;
 }
 
 // =============================================================
@@ -189,25 +217,14 @@ function guessExtension(url, contentType) {
 }
 
 async function uploadMaterialToServer(payload) {
-  const response = await fetch(SERVER_UPLOAD_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  }).catch((error) => {
-    throw new Error(`保存到服务器失败: ${serializeError(error)}`);
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`服务器返回异常 (${response.status}): ${text.slice(0, 120)}`);
-  }
-
   try {
-    return await response.json();
+    const uploadPath = (typeof self !== 'undefined' && self.ApiConfig?.API_ENDPOINTS?.CRAWLER?.MATERIAL_ADD) || '/crawler/material/add';
+    return await apiRequestWithContext(uploadPath, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   } catch (error) {
-    throw new Error(`解析服务器响应失败: ${serializeError(error)}`);
+    throw new Error(`保存到服务器失败: ${serializeError(error)}`);
   }
 }
 
@@ -365,7 +382,6 @@ async function saveWebsiteToServer(websiteData, tab) {
   const tabId = getTabId(tab);
 
   try {
-    // 1. 检查是否已登录
     const authState = await storageGet([AUTH_TOKEN_KEY, AUTH_USER_INFO_KEY]);
     const token = authState[AUTH_TOKEN_KEY];
     const userInfo = authState[AUTH_USER_INFO_KEY];
@@ -376,18 +392,7 @@ async function saveWebsiteToServer(websiteData, tab) {
       throw new Error('请先登录后再保存网站');
     }
 
-    // 2. 获取 API 基础地址和接口路径
-    const devMode = Boolean((await storageGet([STORAGE_DEV_MODE_KEY]))[STORAGE_DEV_MODE_KEY]);
-    const apiBaseUrl = devMode
-      ? ((typeof self !== 'undefined' && self.ApiConfig?.DEV_CONFIG?.API_BASE_URL) || 'http://localhost:1520/api')
-      : ((typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.API_BASE_URL) || 'https://1s.design:1520/api');
-
     const createPath = (typeof self !== 'undefined' && self.ApiConfig?.API_ENDPOINTS?.COMMON_URL?.CREATE) || '/common-url';
-    const fullUrl = `${apiBaseUrl}${createPath}`;
-
-    // 3. 构建请求数据
-    // 确保 userId 是字符串类型，如果不存在则不传（因为它是可选的）
-    const userId = userInfo.id || userInfo.userId;
     const requestData = {
       url: websiteData.url,
       name: websiteData.name || new URL(websiteData.url).hostname,
@@ -398,44 +403,13 @@ async function saveWebsiteToServer(websiteData, tab) {
       sort: 0,
     };
 
-    // 只有当 userId 存在且是字符串时才添加
-    if (userId && typeof userId === 'string') {
-      requestData.userId = userId;
-    } else if (userId) {
-      // 如果 userId 存在但不是字符串，转换为字符串
-      requestData.userId = String(userId);
-    }
-
     log('[SaveWebsite] 准备保存网站:', requestData);
 
-    // 4. 发送请求
-    const response = await fetch(fullUrl, {
+    const responseData = await apiRequestWithContext(createPath, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
       body: JSON.stringify(requestData),
     });
 
-    // 5. 处理响应
-    const responseText = await response.text().catch(() => '');
-    let responseData;
-    try {
-      responseData = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      responseData = { message: responseText || `HTTP ${response.status}` };
-    }
-
-    // 6. 检查响应状态
-    if (!response.ok) {
-      const errorMessage = parseErrorMessage(responseData, response.status, '保存网站失败');
-      showLoading(tabId, 'hide');
-      showToast(tabId, 'error', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    // 7. 成功处理
     log('[SaveWebsite] 网站保存成功:', responseData);
     showLoading(tabId, 'hide');
     showToast(tabId, 'success', '网站已保存到 YiShe');
@@ -461,7 +435,6 @@ async function saveTextToServer(textData, tab) {
   const tabId = getTabId(tab);
 
   try {
-    // 1. 检查是否已登录
     const authState = await storageGet([AUTH_TOKEN_KEY, AUTH_USER_INFO_KEY]);
     const token = authState[AUTH_TOKEN_KEY];
     const userInfo = authState[AUTH_USER_INFO_KEY];
@@ -472,16 +445,8 @@ async function saveTextToServer(textData, tab) {
       throw new Error('请先登录后再保存文字');
     }
 
-    // 2. 获取 API 基础地址和接口路径
-    const devMode = Boolean((await storageGet([STORAGE_DEV_MODE_KEY]))[STORAGE_DEV_MODE_KEY]);
-    const apiBaseUrl = devMode
-      ? ((typeof self !== 'undefined' && self.ApiConfig?.DEV_CONFIG?.API_BASE_URL) || 'http://localhost:1520/api')
-      : ((typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.API_BASE_URL) || 'https://1s.design:1520/api');
-
     const createPath = (typeof self !== 'undefined' && self.ApiConfig?.API_ENDPOINTS?.SENTENCE?.CREATE) || '/sentences';
-    const fullUrl = `${apiBaseUrl}${createPath}`;
 
-    // 3. 构建请求数据
     const requestData = {
       content: textData.content || '',
       description: textData.description || '',
@@ -499,34 +464,11 @@ async function saveTextToServer(textData, tab) {
       keywords: requestData.keywords
     });
 
-    // 4. 发送请求
-    const response = await fetch(fullUrl, {
+    const responseData = await apiRequestWithContext(createPath, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
       body: JSON.stringify(requestData),
     });
 
-    // 5. 处理响应
-    const responseText = await response.text().catch(() => '');
-    let responseData;
-    try {
-      responseData = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      responseData = { message: responseText || `HTTP ${response.status}` };
-    }
-
-    // 6. 检查响应状态
-    if (!response.ok) {
-      const errorMessage = parseErrorMessage(responseData, response.status, '保存文字失败');
-      showLoading(tabId, 'hide');
-      showToast(tabId, 'error', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    // 7. 成功处理
     log('[SaveText] 文字保存成功:', responseData);
     showLoading(tabId, 'hide');
     showToast(tabId, 'success', '文字已保存到 YiShe 句子管理');
@@ -741,35 +683,11 @@ function cloneMetadata(metadata) {
   }
 }
 
-function mergeMetadataWithAuth(metadata, token, userInfo) {
-  if (!metadata) {
-    return metadata;
-  }
-
-  const merged = { ...metadata };
-
-  if (token) {
-    merged.auth = {
-      ...(merged.auth || {}),
-      token,
-    };
-  } else if (merged.auth) {
-    delete merged.auth.token;
-    if (Object.keys(merged.auth).length === 0) {
-      delete merged.auth;
-    }
-  }
-
-  if (userInfo) {
-    merged.user = userInfo;
-  } else if (merged.user) {
-    delete merged.user;
-  }
-
-  return merged;
+function buildConnectionClientInfo(metadata) {
+  return cloneMetadata(metadata);
 }
 
-function buildConnectionQuery(metadata, token) {
+function buildConnectionQuery(metadata) {
   const query = {
     [CLIENT_SOURCE_QUERY_KEY]: CLIENT_SOURCE,
   };
@@ -780,16 +698,6 @@ function buildConnectionQuery(metadata, token) {
   if (metadata?.clientId) {
     query[CLIENT_ID_QUERY_KEY] = metadata.clientId;
   }
-  if (token) {
-    query.token = token;
-  }
-  if (metadata) {
-    try {
-      query[CLIENT_INFO_QUERY_KEY] = JSON.stringify(metadata);
-    } catch (error) {
-      log('序列化客户端信息失败:', serializeError(error));
-    }
-  }
 
   const entries = Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== null && value !== '');
@@ -798,6 +706,20 @@ function buildConnectionQuery(metadata, token) {
     acc[key] = String(value);
     return acc;
   }, {});
+}
+
+function buildConnectionAuth(token, metadata) {
+  const auth = {};
+
+  if (token) {
+    auth.token = token;
+  }
+
+  if (metadata) {
+    auth.clientInfo = metadata;
+  }
+
+  return Object.keys(auth).length ? auth : undefined;
 }
 
 function emitClientInfo(extraPayload) {
@@ -1062,8 +984,19 @@ function startClientHeartbeatLoop() {
 }
 
 function updateClientWsState(patch) {
-  Object.assign(clientWsState, patch, { endpoint: CLIENT_WS_ENDPOINT });
+  Object.assign(clientWsState, patch, { endpoint: clientWsEndpoint });
   broadcastClientWsState();
+}
+
+function disconnectClientWebsocket(reason) {
+  stopClientHeartbeatTimers();
+  cleanupClientSocket();
+  updateClientWsState({
+    status: 'disconnected',
+    connectedAt: null,
+    lastError: reason || null,
+    retryCount: 0,
+  });
 }
 
 function disconnectWebsocket(reason) {
@@ -1123,15 +1056,15 @@ async function initWebsocket() {
 
   const [metadata, authState] = await Promise.all([
     ensureClientMetadata(),
-    storageGet([AUTH_TOKEN_KEY, AUTH_USER_INFO_KEY]),
+    storageGet([AUTH_TOKEN_KEY]),
   ]);
   const token = authState[AUTH_TOKEN_KEY];
-  const userInfo = authState[AUTH_USER_INFO_KEY];
-  const enrichedMetadata = mergeMetadataWithAuth(metadata, token, userInfo);
-  const query = buildConnectionQuery(enrichedMetadata, token);
-  if (enrichedMetadata) {
-    clientMetadata = enrichedMetadata;
-    updateWsState({ clientInfo: cloneMetadata(enrichedMetadata) });
+  const connectionClientInfo = buildConnectionClientInfo(metadata);
+  const query = buildConnectionQuery(connectionClientInfo);
+  const auth = buildConnectionAuth(token, connectionClientInfo);
+  if (connectionClientInfo) {
+    clientMetadata = connectionClientInfo;
+    updateWsState({ clientInfo: cloneMetadata(connectionClientInfo) });
   }
 
   stopHeartbeatTimers();
@@ -1153,11 +1086,7 @@ async function initWebsocket() {
     reconnectionDelayMax: 15000,
     timeout: 8000,
     query,
-    auth: token
-      ? {
-        token,
-      }
-      : undefined,
+    auth,
   });
 
   socket.on('connect', () => {
@@ -1314,6 +1243,7 @@ async function initClientWebsocket() {
     return;
   }
 
+  clientWsEndpoint = await getEffectiveClientBaseUrl();
   stopClientHeartbeatTimers();
   cleanupClientSocket();
 
@@ -1323,7 +1253,7 @@ async function initClientWebsocket() {
     retryCount: 0,
   });
 
-  log('[ClientWS] 开始连接到本地客户端 WebSocket:', CLIENT_WS_ENDPOINT);
+  log('[ClientWS] 开始连接到本地客户端 WebSocket:', clientWsEndpoint);
 
   // 获取客户端元数据
   const metadata = await ensureClientMetadata();
@@ -1333,12 +1263,12 @@ async function initClientWebsocket() {
   };
 
   try {
-    query.clientInfo = JSON.stringify(metadata);
+    query[CLIENT_INFO_QUERY_KEY] = JSON.stringify(metadata);
   } catch (e) {
     log('[ClientWS] 序列化客户端信息失败:', e);
   }
 
-  clientSocket = io(CLIENT_WS_ENDPOINT, {
+  clientSocket = io(clientWsEndpoint, {
     path: '/ws',
     transports: ['websocket', 'polling'],
     reconnection: true,
@@ -1772,6 +1702,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       .catch((error) => {
         log('[WS] dev-config-change: 处理失败', serializeError(error));
       });
+
+    disconnectClientWebsocket('dev-config-change');
+    connectClientWebsocket().catch((error) => {
+      log('[ClientWS] dev-config-change: 处理失败', serializeError(error));
+    });
   }
 });
 
@@ -2064,10 +1999,10 @@ async function performUpload(tabId, imageUrl, selectedText) {
       ...(selectedText ? { aiGenerateRawInfo: selectedText } : {})  // 添加AI分析的原始信息（如果有）
     };
 
-    // 从配置文件获取客户端上传接口地址
-    const clientUploadUrl = (typeof self !== 'undefined' && self.ApiConfig?.PROD_CONFIG?.CLIENT_BASE_URL && self.ApiConfig?.CLIENT_ENDPOINTS?.CRAWLER_MATERIAL_UPLOAD)
-      ? `${self.ApiConfig.PROD_CONFIG.CLIENT_BASE_URL}${self.ApiConfig.CLIENT_ENDPOINTS.CRAWLER_MATERIAL_UPLOAD}`
-      : 'http://localhost:1519/api/crawler-material-upload';
+    const clientBaseUrl = await getEffectiveClientBaseUrl();
+    const clientUploadPath = (typeof self !== 'undefined' && self.ApiConfig?.CLIENT_ENDPOINTS?.CRAWLER_MATERIAL_UPLOAD)
+      || '/api/crawler-material-upload';
+    const clientUploadUrl = `${clientBaseUrl}${clientUploadPath}`;
 
     const response = await fetch(clientUploadUrl, {
       method: 'POST',
@@ -2357,4 +2292,3 @@ try {
 } catch (error) {
   log('[ContextMenu] 初始化右键菜单失败:', serializeError(error));
 }
-

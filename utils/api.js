@@ -1,5 +1,5 @@
 // API 工具函数
-// 用于处理 API 请求、token 管理和 base URL 配置
+// 用于处理 API 请求、token 管理、数据隔离上下文和 base URL 配置
 
 // 从配置文件获取配置（如果配置文件已加载）
 let ApiConfig = null;
@@ -15,6 +15,12 @@ if (typeof window !== 'undefined' && window.ApiConfig) {
   }
 }
 
+const DATA_SCOPE_MODES = {
+  SELF: 'self',
+  USER: 'user',
+  ALL: 'all',
+};
+
 const STORAGE_KEYS = {
   TOKEN: 'accessToken',
   USER_INFO: 'userInfo',
@@ -23,9 +29,10 @@ const STORAGE_KEYS = {
   WS_BASE_URL: 'wsBaseUrl',
   DEV_API_BASE_URL: 'devApiBaseUrl',
   DEV_WS_BASE_URL: 'devWsBaseUrl',
+  DATA_SCOPE_MODE: 'dataScopeMode',
+  DATA_SCOPE_USER_ID: 'dataScopeUserId',
 };
 
-// 默认配置（从配置文件获取，如果配置文件未加载则使用 fallback）
 const DEFAULT_CONFIG = ApiConfig ? {
   PROD_API_BASE_URL: ApiConfig.PROD_CONFIG.API_BASE_URL,
   PROD_WS_BASE_URL: ApiConfig.PROD_CONFIG.WS_BASE_URL,
@@ -38,7 +45,6 @@ const DEFAULT_CONFIG = ApiConfig ? {
   DEV_WS_BASE_URL: 'http://localhost:1520/ws',
 };
 
-// 存储工具函数
 function storageGet(keys) {
   return new Promise((resolve) => {
     chrome.storage.local.get(keys, (result) => {
@@ -59,27 +65,142 @@ function storageSet(data) {
   });
 }
 
-// 获取设备信息
+function normalizeUserId(value) {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function normalizeScopeMode(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === DATA_SCOPE_MODES.ALL || normalized === DATA_SCOPE_MODES.USER) {
+    return normalized;
+  }
+  return DATA_SCOPE_MODES.SELF;
+}
+
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function isFormData(value) {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
+function hasHeader(headers, headerName) {
+  const target = String(headerName || '').toLowerCase();
+  return Object.keys(headers || {}).some((key) => key.toLowerCase() === target);
+}
+
 function getDeviceInfo() {
-  const userAgent = navigator.userAgent;
-  const platform = navigator.platform;
-  const language = navigator.language;
-  
+  const runtimeNavigator = typeof navigator !== 'undefined'
+    ? navigator
+    : (typeof self !== 'undefined' ? self.navigator : undefined);
+
   return {
-    userAgent,
-    platform,
-    language,
+    userAgent: runtimeNavigator?.userAgent,
+    platform: runtimeNavigator?.platform,
+    language: runtimeNavigator?.language,
     timestamp: new Date().toISOString(),
   };
 }
 
-// 获取是否启用开发模式
+function isAdminUser(userInfo) {
+  if (!userInfo) {
+    return false;
+  }
+  if (userInfo.isAdmin === true) {
+    return true;
+  }
+  if (typeof userInfo.isAdmin === 'number') {
+    return userInfo.isAdmin > 0;
+  }
+  if (typeof userInfo.isAdmin === 'string') {
+    const normalized = userInfo.isAdmin.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1';
+  }
+  return false;
+}
+
+function sanitizeDataScopeSelection(scope, userInfo) {
+  if (!isAdminUser(userInfo)) {
+    return {
+      mode: DATA_SCOPE_MODES.SELF,
+      userId: '',
+    };
+  }
+
+  const mode = normalizeScopeMode(scope?.mode);
+  const userId = normalizeUserId(scope?.userId);
+  if (mode === DATA_SCOPE_MODES.USER) {
+    return {
+      mode: userId ? DATA_SCOPE_MODES.USER : DATA_SCOPE_MODES.SELF,
+      userId,
+    };
+  }
+
+  return {
+    mode,
+    userId: '',
+  };
+}
+
+function buildDataScopeHeaders(scope) {
+  const headers = {};
+  const mode = normalizeScopeMode(scope?.mode);
+  const userId = normalizeUserId(scope?.userId);
+
+  headers['x-data-scope-mode'] = mode;
+  if (mode === DATA_SCOPE_MODES.USER && userId) {
+    headers['x-data-scope-user-id'] = userId;
+  }
+
+  return headers;
+}
+
+function applyOwnershipToBody(body, userId) {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) {
+    return body;
+  }
+
+  if (isFormData(body)) {
+    if (!body.get('userId')) {
+      body.append('userId', normalizedUserId);
+    }
+    return body;
+  }
+
+  if (isPlainObject(body)) {
+    if (body.userId === undefined || body.userId === null || body.userId === '') {
+      body.userId = normalizedUserId;
+    }
+    return body;
+  }
+
+  if (typeof body === 'string') {
+    try {
+      const parsed = JSON.parse(body);
+      if (isPlainObject(parsed)) {
+        if (parsed.userId === undefined || parsed.userId === null || parsed.userId === '') {
+          parsed.userId = normalizedUserId;
+        }
+        return JSON.stringify(parsed);
+      }
+    } catch (error) {
+      return body;
+    }
+  }
+
+  return body;
+}
+
 async function isDevMode() {
   const result = await storageGet([STORAGE_KEYS.DEV_MODE]);
   return Boolean(result[STORAGE_KEYS.DEV_MODE]);
 }
 
-// 获取 API Base URL
 async function getApiBaseUrl() {
   const devMode = await isDevMode();
   if (devMode) {
@@ -90,7 +211,6 @@ async function getApiBaseUrl() {
   return result[STORAGE_KEYS.API_BASE_URL] || DEFAULT_CONFIG.PROD_API_BASE_URL;
 }
 
-// 获取 WebSocket Base URL
 async function getWsBaseUrl() {
   const devMode = await isDevMode();
   if (devMode) {
@@ -101,10 +221,8 @@ async function getWsBaseUrl() {
   return result[STORAGE_KEYS.WS_BASE_URL] || DEFAULT_CONFIG.PROD_WS_BASE_URL;
 }
 
-// 设置开发模式
 async function setDevMode(enabled) {
   await storageSet({ [STORAGE_KEYS.DEV_MODE]: enabled });
-  // 通知 service worker 更新配置
   chrome.runtime.sendMessage({
     action: 'updateDevMode',
     devMode: enabled,
@@ -113,48 +231,94 @@ async function setDevMode(enabled) {
   });
 }
 
-// 设置 API Base URL
 async function setApiBaseUrl(url, isDev = false) {
   const key = isDev ? STORAGE_KEYS.DEV_API_BASE_URL : STORAGE_KEYS.API_BASE_URL;
   await storageSet({ [key]: url });
 }
 
-// 设置 WebSocket Base URL
 async function setWsBaseUrl(url, isDev = false) {
   const key = isDev ? STORAGE_KEYS.DEV_WS_BASE_URL : STORAGE_KEYS.WS_BASE_URL;
   await storageSet({ [key]: url });
 }
 
-// 获取 Token
 async function getToken() {
   const result = await storageGet([STORAGE_KEYS.TOKEN]);
   return result[STORAGE_KEYS.TOKEN] || null;
 }
 
-// 设置 Token
 async function setToken(token) {
   await storageSet({ [STORAGE_KEYS.TOKEN]: token });
 }
 
-// 清除 Token
 async function clearToken() {
   await storageSet({ [STORAGE_KEYS.TOKEN]: null });
 }
 
-// 获取用户信息
 async function getUserInfo() {
   const result = await storageGet([STORAGE_KEYS.USER_INFO]);
   return result[STORAGE_KEYS.USER_INFO] || null;
 }
 
-// 设置用户信息
 async function setUserInfo(userInfo) {
   await storageSet({ [STORAGE_KEYS.USER_INFO]: userInfo });
 }
 
-// 清除用户信息
 async function clearUserInfo() {
   await storageSet({ [STORAGE_KEYS.USER_INFO]: null });
+}
+
+async function getStoredDataScope() {
+  const result = await storageGet([
+    STORAGE_KEYS.DATA_SCOPE_MODE,
+    STORAGE_KEYS.DATA_SCOPE_USER_ID,
+  ]);
+
+  return {
+    mode: normalizeScopeMode(result[STORAGE_KEYS.DATA_SCOPE_MODE]),
+    userId: normalizeUserId(result[STORAGE_KEYS.DATA_SCOPE_USER_ID]),
+  };
+}
+
+async function getDataScope() {
+  const [userInfo, scope] = await Promise.all([
+    getUserInfo(),
+    getStoredDataScope(),
+  ]);
+  return sanitizeDataScopeSelection(scope, userInfo);
+}
+
+async function setDataScope(mode = DATA_SCOPE_MODES.SELF, userId = '') {
+  const normalizedMode = normalizeScopeMode(mode);
+  const normalizedUserId = normalizedMode === DATA_SCOPE_MODES.USER ? normalizeUserId(userId) : '';
+
+  await storageSet({
+    [STORAGE_KEYS.DATA_SCOPE_MODE]: normalizedMode,
+    [STORAGE_KEYS.DATA_SCOPE_USER_ID]: normalizedUserId,
+  });
+}
+
+async function clearDataScope() {
+  await storageSet({
+    [STORAGE_KEYS.DATA_SCOPE_MODE]: DATA_SCOPE_MODES.SELF,
+    [STORAGE_KEYS.DATA_SCOPE_USER_ID]: '',
+  });
+}
+
+async function getRequestContext() {
+  const [token, userInfo, scope] = await Promise.all([
+    getToken(),
+    getUserInfo(),
+    getStoredDataScope(),
+  ]);
+
+  const effectiveScope = sanitizeDataScopeSelection(scope, userInfo);
+
+  return {
+    token,
+    userInfo,
+    isAdmin: isAdminUser(userInfo),
+    dataScope: effectiveScope,
+  };
 }
 
 function normalizeApiResponse(raw) {
@@ -173,38 +337,76 @@ function normalizeApiResponse(raw) {
   return raw;
 }
 
-// API 请求函数
+function resolveOwnershipUserId(context, ownershipMode) {
+  if (!context) {
+    return '';
+  }
+
+  if (ownershipMode === 'current-user') {
+    return normalizeUserId(context.userInfo?.id || context.userInfo?.userId);
+  }
+
+  if (ownershipMode === 'scope-user') {
+    if (context.dataScope?.mode === DATA_SCOPE_MODES.USER && context.dataScope?.userId) {
+      return normalizeUserId(context.dataScope.userId);
+    }
+    return normalizeUserId(context.userInfo?.id || context.userInfo?.userId);
+  }
+
+  return '';
+}
+
 async function apiRequest(url, options = {}) {
-  const baseUrl = await getApiBaseUrl();
-  const token = await getToken();
-  
-  // 如果 URL 是完整 URL，直接使用；否则拼接 baseUrl
-  // baseUrl 已经包含 /api 前缀，所以直接拼接即可
+  const {
+    headers: customHeaders = {},
+    dataScope = 'auto',
+    ownership = 'server-managed',
+    body: rawBody,
+    ...fetchOptions
+  } = options;
+
+  const [baseUrl, context] = await Promise.all([
+    getApiBaseUrl(),
+    getRequestContext(),
+  ]);
+
   let fullUrl;
   if (url.startsWith('http://') || url.startsWith('https://')) {
     fullUrl = url;
   } else {
-    // 确保 url 以 / 开头
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
-    // 确保 baseUrl 不以 / 结尾
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     fullUrl = `${normalizedBase}${normalizedUrl}`;
   }
-  
+
   const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+    ...customHeaders,
   };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+
+  let body = rawBody;
+  const ownershipUserId = resolveOwnershipUserId(context, ownership);
+  if (ownership !== 'server-managed' && ownershipUserId) {
+    body = applyOwnershipToBody(body, ownershipUserId);
   }
-  
+
+  if (context.token) {
+    headers['Authorization'] = `Bearer ${context.token}`;
+  }
+
+  if (dataScope !== 'skip' && context.isAdmin) {
+    Object.assign(headers, buildDataScopeHeaders(context.dataScope));
+  }
+
+  if (!isFormData(body) && body !== undefined && body !== null && !hasHeader(headers, 'Content-Type')) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const response = await fetch(fullUrl, {
-    ...options,
+    ...fetchOptions,
     headers,
+    body,
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => '请求失败');
     let errorData;
@@ -215,26 +417,24 @@ async function apiRequest(url, options = {}) {
     }
     const error = new Error(errorData.message || errorData.msg || `HTTP ${response.status}`);
     error.status = response.status;
+    error.data = errorData;
     throw error;
   }
-  
+
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     const json = await response.json();
     return normalizeApiResponse(json);
   }
-  
+
   return await response.text();
 }
 
-// 登录
 async function login(username, password, rememberMe = false) {
   const apiBaseUrl = await getApiBaseUrl();
-  // 从配置文件获取登录接口路径
   const loginPath = ApiConfig?.API_ENDPOINTS?.AUTH?.LOGIN || '/auth/login';
-  // 确保 URL 正确拼接（apiBaseUrl 已经包含 /api 前缀）
   const url = `${apiBaseUrl}${loginPath}`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -244,9 +444,10 @@ async function login(username, password, rememberMe = false) {
       username,
       password,
       deviceInfo: getDeviceInfo(),
+      rememberMe,
     }),
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => '登录失败');
     let errorData;
@@ -257,53 +458,47 @@ async function login(username, password, rememberMe = false) {
     }
     throw new Error(errorData.message || errorData.msg || `登录失败: HTTP ${response.status}`);
   }
-  
+
   const data = normalizeApiResponse(await response.json());
-  
+
   if (!data || !data.token) {
     throw new Error('登录响应中未找到 token');
   }
-  
-  // 保存 token
+
   await setToken(data.token);
-  
-  // 获取用户信息
   await fetchUserInfo();
-  
+
   return data;
 }
 
-// 获取用户信息
 async function fetchUserInfo() {
   try {
-    // 从配置文件获取用户信息接口路径
     const userInfoPath = ApiConfig?.API_ENDPOINTS?.USER?.GET_USER_INFO || '/user/getUserInfo';
     const data = await apiRequest(userInfoPath, {
       method: 'POST',
       body: JSON.stringify({}),
+      dataScope: 'skip',
     });
-    
+
     if (data) {
       await setUserInfo(data);
       return data;
     }
-    
+
     throw new Error('获取用户信息失败：响应为空');
   } catch (error) {
     console.error('获取用户信息失败:', error);
-    // 如果是 401 错误，清除 token 和用户信息
     if (error.status === 401 || (error.message && error.message.includes('401'))) {
       await clearToken();
       await clearUserInfo();
+      await clearDataScope();
     }
     throw error;
   }
 }
 
-// 登出
 async function logout() {
   try {
-    // 从配置文件获取登出接口路径
     const logoutPath = ApiConfig?.API_ENDPOINTS?.AUTH?.LOGOUT || '/auth/logout';
     await apiRequest(logoutPath, {
       method: 'POST',
@@ -313,10 +508,10 @@ async function logout() {
   } finally {
     await clearToken();
     await clearUserInfo();
+    await clearDataScope();
   }
 }
 
-// 创建公共链接
 async function createCommonUrl(commonUrlData) {
   const createPath = ApiConfig?.API_ENDPOINTS?.COMMON_URL?.CREATE || '/common-url';
   return await apiRequest(createPath, {
@@ -325,53 +520,42 @@ async function createCommonUrl(commonUrlData) {
   });
 }
 
-// 导出
+const exportedApiUtils = {
+  login,
+  logout,
+  fetchUserInfo,
+  apiRequest,
+  getToken,
+  setToken,
+  clearToken,
+  getUserInfo,
+  setUserInfo,
+  clearUserInfo,
+  isDevMode,
+  setDevMode,
+  getApiBaseUrl,
+  getWsBaseUrl,
+  setApiBaseUrl,
+  setWsBaseUrl,
+  getDataScope,
+  setDataScope,
+  clearDataScope,
+  getRequestContext,
+  buildDataScopeHeaders,
+  createCommonUrl,
+  DEFAULT_CONFIG,
+  STORAGE_KEYS,
+  DATA_SCOPE_MODES,
+};
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    login,
-    logout,
-    fetchUserInfo,
-    apiRequest,
-    getToken,
-    setToken,
-    clearToken,
-    getUserInfo,
-    setUserInfo,
-    clearUserInfo,
-    isDevMode,
-    setDevMode,
-    getApiBaseUrl,
-    getWsBaseUrl,
-    setApiBaseUrl,
-    setWsBaseUrl,
-    createCommonUrl,
-    DEFAULT_CONFIG,
-    STORAGE_KEYS,
-  };
+  module.exports = exportedApiUtils;
 }
 
-// 如果在浏览器环境中，挂载到 window
 if (typeof window !== 'undefined') {
-  window.ApiUtils = {
-    login,
-    logout,
-    fetchUserInfo,
-    apiRequest,
-    getToken,
-    setToken,
-    clearToken,
-    getUserInfo,
-    setUserInfo,
-    clearUserInfo,
-    isDevMode,
-    setDevMode,
-    getApiBaseUrl,
-    getWsBaseUrl,
-    setApiBaseUrl,
-    setWsBaseUrl,
-    createCommonUrl,
-    DEFAULT_CONFIG,
-    STORAGE_KEYS,
-  };
+  window.ApiUtils = exportedApiUtils;
 }
 
+if (typeof self !== 'undefined' && typeof window === 'undefined') {
+  self.ApiUtils = exportedApiUtils;
+}

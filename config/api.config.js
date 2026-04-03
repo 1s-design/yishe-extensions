@@ -49,12 +49,13 @@ const API_ENDPOINTS = {
   },
   // 公共链接相关
   COMMON_URL: {
+    // 创建/分页默认依赖服务端根据 token 和 x-data-scope-* 头做数据隔离，
+    // 不再推荐通过 /user/:userId 这类路径在插件端显式拼接 owner。
     CREATE: '/common-url',
     LIST: '/common-url/page',
     GET: '/common-url/:id',
     UPDATE: '/common-url/:id',
     DELETE: '/common-url/:id',
-    GET_BY_USER: '/common-url/user/:userId',
     GET_BY_CATEGORY: '/common-url/category/:category',
   },
   // 句子管理相关
@@ -107,4 +108,3 @@ if (typeof self !== 'undefined' && typeof window === 'undefined') {
     CLIENT_ENDPOINTS,
   };
 }
-

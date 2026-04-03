@@ -77,8 +77,8 @@
       
       if (token && userInfo) {
         // 已登录，显示用户信息
-        if (userInfoControl) userInfoControl.style.display = 'block';
-        if (loginPromptControl) loginPromptControl.style.display = 'none';
+        if (userInfoControl) userInfoControl.hidden = false;
+        if (loginPromptControl) loginPromptControl.hidden = true;
         
         if (userNameControl && userInfo.name) {
           userNameControl.textContent = userInfo.name;
@@ -93,7 +93,7 @@
         }
         
         if (logoutBtnControl) {
-          logoutBtnControl.addEventListener('click', async () => {
+          logoutBtnControl.onclick = async () => {
             try {
               await ApiUtils.logout();
               // 刷新页面显示
@@ -101,18 +101,18 @@
             } catch (error) {
               console.error('[control] 登出失败:', error);
             }
-          });
+          };
         }
       } else {
         // 未登录，显示登录提示
-        if (userInfoControl) userInfoControl.style.display = 'none';
-        if (loginPromptControl) loginPromptControl.style.display = 'block';
+        if (userInfoControl) userInfoControl.hidden = true;
+        if (loginPromptControl) loginPromptControl.hidden = false;
         
         if (loginBtnControl) {
-          loginBtnControl.addEventListener('click', () => {
+          loginBtnControl.onclick = () => {
             const loginUrl = chrome.runtime.getURL('pages/login.html');
             window.location.href = loginUrl;
-          });
+          };
         }
       }
     } catch (error) {
@@ -229,8 +229,8 @@
 
     if (group.meta?.icon) {
       const icon = document.createElement('div');
+      icon.className = 'feature-group-icon';
       icon.textContent = group.meta.icon;
-      icon.style.fontSize = '20px';
       header.appendChild(icon);
     }
 
@@ -307,6 +307,7 @@
     header.className = 'feature-card-header';
 
     const info = document.createElement('div');
+    info.className = 'feature-card-info';
     const name = document.createElement('div');
     name.className = 'feature-name';
     name.textContent = feature.name || '未命名功能';
@@ -457,7 +458,7 @@
   function createStatusElement() {
     const status = document.createElement('div');
     status.className = 'feature-status';
-    status.style.display = 'none';
+    status.hidden = true;
     return status;
   }
 
@@ -466,7 +467,7 @@
     if (!status) return;
     status.textContent = message;
     status.classList.remove('info', 'success', 'error');
-    status.style.display = message ? 'flex' : 'none';
+    status.hidden = !message;
     if (message) {
       status.classList.add(tone);
     }
@@ -629,4 +630,3 @@
       .replace(/'/g, '&#39;');
   }
 })();
-

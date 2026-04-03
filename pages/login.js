@@ -44,7 +44,7 @@
   // 更新开发模式信息显示
   async function updateDevModeInfo() {
     const isDev = devModeToggle.checked;
-    devModeInfo.style.display = isDev ? 'block' : 'none';
+    devModeInfo.hidden = !isDev;
   }
   
   // 开发模式切换
@@ -56,9 +56,9 @@
   // 显示错误
   function showError(message) {
     loginError.textContent = message;
-    loginError.style.display = 'block';
+    loginError.hidden = false;
     setTimeout(() => {
-      loginError.style.display = 'none';
+      loginError.hidden = true;
     }, 5000);
   }
   
@@ -66,11 +66,11 @@
   function setLoading(loading) {
     loginBtn.disabled = loading;
     if (loading) {
-      loginBtnText.style.display = 'none';
-      loginBtnLoading.style.display = 'inline';
+      loginBtnText.hidden = true;
+      loginBtnLoading.hidden = false;
     } else {
-      loginBtnText.style.display = 'inline';
-      loginBtnLoading.style.display = 'none';
+      loginBtnText.hidden = false;
+      loginBtnLoading.hidden = true;
     }
   }
   
@@ -88,7 +88,7 @@
     }
     
     setLoading(true);
-    loginError.style.display = 'none';
+    loginError.hidden = true;
     
     try {
       await ApiUtils.login(username, password, rememberMe);
@@ -118,4 +118,3 @@
   await loadDevMode();
   await checkLoginStatus();
 })();
-

@@ -52,11 +52,11 @@
           </label>
         </div>
 
-        <div id="login-error" class="login-error" style="display: none;"></div>
+        <div id="login-error" class="login-error" hidden></div>
 
         <button type="submit" id="login-btn" class="login-btn">
           <span id="login-btn-text">登录</span>
-          <span id="login-btn-loading" style="display: none;">登录中...</span>
+          <span id="login-btn-loading" class="button-loading-text" hidden>登录中...</span>
         </button>
       </form>
 
@@ -66,10 +66,10 @@
             <input type="checkbox" id="dev-mode-toggle">
             <span>开发模式</span>
           </label>
-          <div id="dev-mode-info" class="dev-mode-info" style="display: none;">
+          <div id="dev-mode-info" class="dev-mode-info" hidden>
             <div class="dev-mode-item">
-              <span class="dev-mode-label">环境信息:</span>
-              <span class="dev-mode-value">地址已配置</span>
+              <span class="dev-mode-info-label">环境信息:</span>
+              <span class="dev-mode-info-value">地址已配置</span>
             </div>
           </div>
         </div>
@@ -80,4 +80,3 @@
   <script src="login.js"></script>
 </body>
 </html>
-

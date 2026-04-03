@@ -14,7 +14,8 @@
         <img src="../assets/logo.png" alt="YiShe Logo" class="header-logo">
         <span>1s 插件系统</span>
       </div>
-      <div id="user-info-section" class="user-info-section" style="display: none;">
+      <p class="header-subtitle">连接状态与插件控制</p>
+      <div id="user-info-section" class="user-info-section" hidden>
         <div class="user-info">
           <div class="user-info-avatar" id="user-avatar">U</div>
           <div class="user-info-text">
@@ -24,19 +25,19 @@
           <button id="logout-btn" class="logout-btn">退出</button>
         </div>
       </div>
-      <div id="login-prompt" class="login-prompt" style="display: none;">
-        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">请先登录以使用完整功能</p>
+      <div id="login-prompt" class="login-prompt" hidden>
+        <p class="login-prompt-text">请先登录以使用完整功能</p>
         <button id="login-btn" class="login-prompt-btn">前往登录</button>
       </div>
     </header>
 
     <main class="popup-content">
-      <div class="section-header" style="display: flex; justify-content: flex-end;">
+      <div class="popup-actions">
         <button id="open-in-tab-btn" class="clear-messages-btn" title="在新标签页打开">在新标签页打开</button>
       </div>
       <section class="ws-status-card">
         <div id="loading" class="loading">状态加载中...</div>
-        <div id="ws-status-content" style="display: none;">
+        <div id="ws-status-content" hidden>
           <div class="ws-status-title">服务端连接</div>
           <div class="ws-status-header">
             <div class="ws-status-indicator">
@@ -47,20 +48,20 @@
               重新连接
             </button>
           </div>
-          <div id="ws-status-endpoint" class="ws-status-endpoint" style="display: none;" title="已配置">
+          <div id="ws-status-endpoint" class="ws-status-endpoint" hidden title="已配置">
           </div>
-          <div id="ws-status-meta" class="ws-status-meta" style="display: none;">
+          <div id="ws-status-meta" class="ws-status-meta" hidden>
             <span id="ping-time"></span>
             <span id="pong-time"></span>
             <span id="latency"></span>
           </div>
-          <div id="ws-status-error" class="ws-status-error" style="display: none;">
+          <div id="ws-status-error" class="ws-status-error" hidden>
             错误：<span id="error-text"></span>
           </div>
         </div>
       </section>
       <section class="ws-status-card">
-        <div id="client-ws-status-content" style="display: none;">
+        <div id="client-ws-status-content" hidden>
           <div class="ws-status-title">客户端连接</div>
           <div class="ws-status-header">
             <div class="ws-status-indicator">
@@ -71,14 +72,14 @@
               重新连接
             </button>
           </div>
-          <div id="client-ws-status-endpoint" class="ws-status-endpoint" style="display: none;" title="本地客户端">
+          <div id="client-ws-status-endpoint" class="ws-status-endpoint" hidden title="本地客户端">
           </div>
-          <div id="client-ws-status-meta" class="ws-status-meta" style="display: none;">
+          <div id="client-ws-status-meta" class="ws-status-meta" hidden>
             <span id="client-ping-time"></span>
             <span id="client-pong-time"></span>
             <span id="client-latency"></span>
           </div>
-          <div id="client-ws-status-error" class="ws-status-error" style="display: none;">
+          <div id="client-ws-status-error" class="ws-status-error" hidden>
             错误：<span id="client-error-text"></span>
           </div>
         </div>

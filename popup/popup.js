@@ -61,6 +61,11 @@ const elements = {
   clientErrorText: document.getElementById('client-error-text'),
 };
 
+function setHidden(element, hidden) {
+  if (!element) return;
+  element.hidden = Boolean(hidden);
+}
+
 // 格式化时间戳
 function formatTimestamp(value) {
   if (!value) return '';
@@ -87,7 +92,7 @@ function updateUI() {
   
   // 更新元数据
   const hasMeta = wsState.lastPingAt || wsState.lastPongAt || wsState.lastLatencyMs;
-  elements.wsStatusMeta.style.display = hasMeta ? 'flex' : 'none';
+  setHidden(elements.wsStatusMeta, !hasMeta);
   
   if (wsState.lastPingAt) {
     elements.pingTime.textContent = `Ping: ${formatTimestamp(wsState.lastPingAt)}`;
@@ -110,9 +115,9 @@ function updateUI() {
   // 更新错误信息
   if (wsState.lastError) {
     elements.errorText.textContent = wsState.lastError;
-    elements.wsStatusError.style.display = 'block';
+    setHidden(elements.wsStatusError, false);
   } else {
-    elements.wsStatusError.style.display = 'none';
+    setHidden(elements.wsStatusError, true);
   }
   
   // 更新重新连接按钮
@@ -134,7 +139,7 @@ function updateClientUI() {
   
   // 更新元数据
   const hasMeta = clientWsState.lastPingAt || clientWsState.lastPongAt || clientWsState.lastLatencyMs;
-  elements.clientWsStatusMeta.style.display = hasMeta ? 'flex' : 'none';
+  setHidden(elements.clientWsStatusMeta, !hasMeta);
   
   if (clientWsState.lastPingAt) {
     elements.clientPingTime.textContent = `Ping: ${formatTimestamp(clientWsState.lastPingAt)}`;
@@ -157,9 +162,9 @@ function updateClientUI() {
   // 更新错误信息
   if (clientWsState.lastError) {
     elements.clientErrorText.textContent = clientWsState.lastError;
-    elements.clientWsStatusError.style.display = 'block';
+    setHidden(elements.clientWsStatusError, false);
   } else {
-    elements.clientWsStatusError.style.display = 'none';
+    setHidden(elements.clientWsStatusError, true);
   }
   
   // 更新重新连接按钮
@@ -167,7 +172,7 @@ function updateClientUI() {
   elements.clientReconnectBtn.disabled = !canReconnect;
   
   // 显示客户端连接状态区域
-  elements.clientWsStatusContent.style.display = 'block';
+  setHidden(elements.clientWsStatusContent, false);
 }
 
 // 从 storage 读取 WebSocket 状态（后备方案）
@@ -200,8 +205,8 @@ function fetchWsStatus() {
     console.log('[popup] fetchWsStatus: 收到响应:', response);
     console.log('[popup] fetchWsStatus: runtime.lastError:', chrome.runtime.lastError);
     
-    elements.loading.style.display = 'none';
-    elements.wsStatusContent.style.display = 'block';
+    setHidden(elements.loading, true);
+    setHidden(elements.wsStatusContent, false);
     
     if (chrome.runtime.lastError) {
       console.error('[popup] fetchWsStatus: 错误:', chrome.runtime.lastError.message);
@@ -319,14 +324,14 @@ function renderAdminMessages(messages) {
   
   if (messages.length === 0) {
     console.log('[popup] renderAdminMessages: 无消息，显示空状态');
-    elements.adminMessagesList.style.display = 'none';
-    elements.adminMessagesEmpty.style.display = 'block';
+    setHidden(elements.adminMessagesList, true);
+    setHidden(elements.adminMessagesEmpty, false);
     return;
   }
 
   console.log('[popup] renderAdminMessages: 有消息，开始渲染');
-  elements.adminMessagesList.style.display = 'block';
-  elements.adminMessagesEmpty.style.display = 'none';
+  setHidden(elements.adminMessagesList, false);
+  setHidden(elements.adminMessagesEmpty, true);
 
   const messagesToRender = messages.slice(0, 10);
   console.log('[popup] renderAdminMessages: 将渲染的消息数量:', messagesToRender.length);
@@ -552,8 +557,8 @@ async function loadUserInfo() {
     
     if (token && userInfo) {
       // 已登录，显示用户信息
-      if (userInfoSection) userInfoSection.style.display = 'block';
-      if (loginPrompt) loginPrompt.style.display = 'none';
+      setHidden(userInfoSection, false);
+      setHidden(loginPrompt, true);
       
       if (userName && userInfo.name) {
         userName.textContent = userInfo.name;
@@ -568,7 +573,7 @@ async function loadUserInfo() {
       }
       
       if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
+        logoutBtn.onclick = async () => {
           try {
             await ApiUtils.logout();
             // 退出登录后跳转到登录页面
@@ -580,17 +585,17 @@ async function loadUserInfo() {
             await ApiUtils.clearUserInfo();
             redirectToLogin();
           }
-        });
+        };
       }
     } else {
       // 未登录，显示登录提示
-      if (userInfoSection) userInfoSection.style.display = 'none';
-      if (loginPrompt) loginPrompt.style.display = 'block';
+      setHidden(userInfoSection, true);
+      setHidden(loginPrompt, false);
       
       if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
+        loginBtn.onclick = () => {
           redirectToLogin();
-        });
+        };
       }
     }
   } catch (error) {

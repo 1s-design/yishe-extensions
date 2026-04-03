@@ -14,7 +14,7 @@
     <aside class="control-sidebar">
       <div class="control-brand">
         <div class="control-brand-logo">
-          <img src="../assets/logo.png" alt="YiShe Logo" style="width: 100%; height: 100%;">
+          <img src="../assets/logo.png" alt="YiShe Logo" class="control-brand-image">
         </div>
         <div class="control-brand-info">
           <div class="control-brand-name">YiShe 控制台</div>
@@ -28,7 +28,7 @@
       </nav>
       <div class="control-nav-foot">
         <div class="control-nav-foot-title">其它</div>
-        <div id="user-info-control" class="user-info-control" style="display: none;">
+        <div id="user-info-control" class="user-info-control" hidden>
           <div class="user-info">
             <div class="user-info-avatar" id="user-avatar-control">U</div>
             <div class="user-info-text">
@@ -38,8 +38,8 @@
             <button id="logout-btn-control" class="logout-btn">退出</button>
           </div>
         </div>
-        <div id="login-prompt-control" class="login-prompt-control" style="display: none;">
-          <button id="login-btn-control" class="control-nav-action" style="width: 100%;">前往登录</button>
+        <div id="login-prompt-control" class="login-prompt-control" hidden>
+          <button id="login-btn-control" class="control-nav-action control-nav-action-full">前往登录</button>
         </div>
       </div>
     </aside>
@@ -85,53 +85,55 @@
           </div>
         </div>
 
-        <div class="ws-status-card">
-          <div id="loading" class="loading">状态加载中...</div>
-          <div id="ws-status-content" style="display: none;">
-            <div class="ws-status-title">服务端连接</div>
-            <div class="ws-status-header">
-              <div class="ws-status-indicator">
-                <span id="status-dot" class="status-dot disconnected"></span>
-                <span id="ws-status-label" class="ws-status-label">已断开</span>
+        <div class="ws-status-grid">
+          <div class="ws-status-card">
+            <div id="loading" class="loading">状态加载中...</div>
+            <div id="ws-status-content" hidden>
+              <div class="ws-status-title">服务端连接</div>
+              <div class="ws-status-header">
+                <div class="ws-status-indicator">
+                  <span id="status-dot" class="status-dot disconnected"></span>
+                  <span id="ws-status-label" class="ws-status-label">已断开</span>
+                </div>
+                <button id="reconnect-btn" class="ws-reconnect-btn" disabled>
+                  重新连接
+                </button>
               </div>
-              <button id="reconnect-btn" class="ws-reconnect-btn" disabled>
-                重新连接
-              </button>
-            </div>
-            <div id="ws-status-endpoint" class="ws-status-endpoint" style="display: none;" title="已配置">
-            </div>
-            <div id="ws-status-meta" class="ws-status-meta" style="display: none;">
-              <span id="ping-time"></span>
-              <span id="pong-time"></span>
-              <span id="latency"></span>
-            </div>
-            <div id="ws-status-error" class="ws-status-error" style="display: none;">
-              错误：<span id="error-text"></span>
+              <div id="ws-status-endpoint" class="ws-status-endpoint" hidden title="已配置">
+              </div>
+              <div id="ws-status-meta" class="ws-status-meta" hidden>
+                <span id="ping-time"></span>
+                <span id="pong-time"></span>
+                <span id="latency"></span>
+              </div>
+              <div id="ws-status-error" class="ws-status-error" hidden>
+                错误：<span id="error-text"></span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="ws-status-card" style="margin-top: 16px;">
-          <div id="client-ws-status-content" style="display: none;">
-            <div class="ws-status-title">客户端连接</div>
-            <div class="ws-status-header">
-              <div class="ws-status-indicator">
-                <span id="client-status-dot" class="status-dot disconnected"></span>
-                <span id="client-ws-status-label" class="ws-status-label">已断开</span>
+          <div class="ws-status-card">
+            <div id="client-ws-status-content" hidden>
+              <div class="ws-status-title">客户端连接</div>
+              <div class="ws-status-header">
+                <div class="ws-status-indicator">
+                  <span id="client-status-dot" class="status-dot disconnected"></span>
+                  <span id="client-ws-status-label" class="ws-status-label">已断开</span>
+                </div>
+                <button id="client-reconnect-btn" class="ws-reconnect-btn" disabled>
+                  重新连接
+                </button>
               </div>
-              <button id="client-reconnect-btn" class="ws-reconnect-btn" disabled>
-                重新连接
-              </button>
-            </div>
-            <div id="client-ws-status-endpoint" class="ws-status-endpoint" style="display: none;" title="本地客户端">
-            </div>
-            <div id="client-ws-status-meta" class="ws-status-meta" style="display: none;">
-              <span id="client-ping-time"></span>
-              <span id="client-pong-time"></span>
-              <span id="client-latency"></span>
-            </div>
-            <div id="client-ws-status-error" class="ws-status-error" style="display: none;">
-              错误：<span id="client-error-text"></span>
+              <div id="client-ws-status-endpoint" class="ws-status-endpoint" hidden title="本地客户端">
+              </div>
+              <div id="client-ws-status-meta" class="ws-status-meta" hidden>
+                <span id="client-ping-time"></span>
+                <span id="client-pong-time"></span>
+                <span id="client-latency"></span>
+              </div>
+              <div id="client-ws-status-error" class="ws-status-error" hidden>
+                错误：<span id="client-error-text"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -158,7 +160,7 @@
         </div>
         <div class="admin-messages-card">
           <div id="admin-messages-list" class="admin-messages-list"></div>
-          <div id="admin-messages-empty" class="admin-messages-empty" style="display: none;">
+          <div id="admin-messages-empty" class="admin-messages-empty" hidden>
             暂无消息
           </div>
         </div>
@@ -171,5 +173,4 @@
   <script src="./control.js"></script>
 </body>
 </html>
-
 
