@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YiShe 多功能工具集",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "一个模块化的多功能 Chrome 插件，支持不同网站的不同功能",
   "permissions": [
     "activeTab",
