@@ -1,0 +1,128 @@
+name: Build Extension On Version Change
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Detect version change
+        id: version
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const cp = require('child_process');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const currentVersion = String(pkg.version || '').trim();
+          let previousVersion = '';
+
+          try {
+            previousVersion = String(
+              JSON.parse(cp.execSync('git show HEAD^:package.json', { encoding: 'utf8' })).version || ''
+            ).trim();
+          } catch (error) {
+            previousVersion = '';
+          }
+
+          const changed = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+            ? 'true'
+            : String(currentVersion !== previousVersion);
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `current=${currentVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `previous=${previousVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed}\n`);
+          NODE
+
+      - name: Skip when version is unchanged
+        if: steps.version.outputs.changed != 'true'
+        run: echo "package.json 版本未变化，跳过打包与发布。"
+
+      - name: Sync manifest version
+        if: steps.version.outputs.changed == 'true'
+        run: npm run version:sync
+
+      - name: Commit synced manifest
+        if: steps.version.outputs.changed == 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- manifest.json; then
+            echo "manifest.json 已同步，无需提交。"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: sync manifest version to ${{ steps.version.outputs.current }}"
+          git push
+
+      - name: Build release directory
+        if: steps.version.outputs.changed == 'true'
+        run: npm run build:release
+
+      - name: Create zip package
+        if: steps.version.outputs.changed == 'true'
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.current }}"
+          cd dist
+          zip -r "yishe-extensions-v${VERSION}.zip" "yishe-extensions-v${VERSION}"
+
+      - name: Upload workflow artifact
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: yishe-extensions-v${{ steps.version.outputs.current }}
+          path: dist/yishe-extensions-v${{ steps.version.outputs.current }}.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.current }}"
+          TAG="v${VERSION}"
+          FILE="dist/yishe-extensions-v${VERSION}.zip"
+
+          NOTES=$(cat <<EOF
+          自动打包的 YiShe 浏览器扩展版本 ${VERSION}。
+
+          安装方式：
+          1. 下载 zip 压缩包并解压。
+          2. 打开 chrome://extensions/ 或 edge://extensions/。
+          3. 开启开发者模式。
+          4. 选择“加载已解压的扩展程序”，导入解压后的文件夹。
+
+          提示：GitHub Release 提供的是源码压缩包，通常不能直接双击安装到浏览器中。
+          EOF
+          )
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$FILE" --clobber
+          else
+            gh release create "$TAG" "$FILE" --title "YiShe Extensions v${VERSION}" --notes "$NOTES"
+          fi

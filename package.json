@@ -1,0 +1,13 @@
+{
+  "name": "yishe-extensions",
+  "version": "1.0.1",
+  "private": true,
+  "description": "YiShe browser extension release helpers",
+  "scripts": {
+    "version:sync": "node scripts/sync-version.js",
+    "build:release": "npm run version:sync && node scripts/build-release.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

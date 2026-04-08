@@ -12,7 +12,7 @@
 ## 目录结构
 
 ```
-core/
+yishe-extensions/
 ├── manifest.json                 # 插件配置文件
 ├── content/
 │   ├── content-base.js          # 基础 content script
@@ -49,8 +49,14 @@ core/
 1. 打开 Chrome 浏览器，访问 `chrome://extensions/`
 2. 开启右上角的"开发者模式"
 3. 点击"加载已解压的扩展程序"
-4. 选择 `core` 文件夹
+4. 如果你是从仓库源码安装，选择当前仓库根目录；如果你是从 Release 下载，先解压，再选择解压后的扩展目录
 5. 完成！插件会显示在浏览器工具栏
+
+## 发布说明
+
+- 仓库版本号以 `package.json` 为准，`manifest.json` 会在发布流程中自动同步。
+- 当 `package.json` 的 `version` 发生变化并推送到 `master` 后，GitHub Action 会自动构建发布包并创建/更新对应版本的 GitHub Release。
+- Release 提供的是 zip 压缩包，用户需要先解压，再通过“加载已解压的扩展程序”导入浏览器。
 
 ## 后端配置
 
