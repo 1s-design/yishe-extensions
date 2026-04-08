@@ -56,7 +56,10 @@ yishe-extensions/
 
 - 仓库版本号以 `package.json` 为准，`manifest.json` 会在发布流程中自动同步。
 - 当 `package.json` 的 `version` 发生变化并推送到 `master` 后，GitHub Action 会自动构建发布包并创建/更新对应版本的 GitHub Release。
-- Release 提供的是 zip 压缩包，用户需要先解压，再通过“加载已解压的扩展程序”导入浏览器。
+- Release 上的资源文件名为固定的 **`yishe-extensions.zip`**（与版本号无关），因此可使用 GitHub 的 latest 永久下载链接，例如：  
+  `https://github.com/1s-design/yishe-extensions/releases/latest/download/yishe-extensions.zip`  
+  （将 `1s-design/yishe-extensions` 换成你的仓库 `owner/repo` 即可。）
+- zip 内需先解压，解压后的文件夹名为 `yishe-extensions-v{version}`，再通过 Chrome/Edge「加载已解压的扩展程序」选择该文件夹。
 
 ## 后端配置
 

@@ -88,14 +88,16 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.current }}"
           cd dist
-          zip -r "yishe-extensions-v${VERSION}.zip" "yishe-extensions-v${VERSION}"
+          rm -f yishe-extensions.zip
+          # 固定文件名，便于使用 releases/latest/download/yishe-extensions.zip 永久链接
+          zip -r "yishe-extensions.zip" "yishe-extensions-v${VERSION}"
 
       - name: Upload workflow artifact
         if: steps.version.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: yishe-extensions-v${{ steps.version.outputs.current }}
-          path: dist/yishe-extensions-v${{ steps.version.outputs.current }}.zip
+          path: dist/yishe-extensions.zip
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -106,7 +108,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.current }}"
           TAG="v${VERSION}"
-          FILE="dist/yishe-extensions-v${VERSION}.zip"
+          FILE="dist/yishe-extensions.zip"
 
           NOTES=$(cat <<EOF
           自动打包的 YiShe 浏览器扩展版本 ${VERSION}。

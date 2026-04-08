@@ -1,6 +1,6 @@
 {
   "name": "yishe-extensions",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "YiShe browser extension release helpers",
   "scripts": {
