@@ -6,6 +6,9 @@ on:
       - master
     paths:
       - package.json
+      - manifest.json
+      - scripts/**
+      - .github/workflows/build-extension-on-version-change.yml
   workflow_dispatch:
 
 permissions:
@@ -26,7 +29,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Detect version change
+      - name: Detect version / packaging change
         id: version
         shell: bash
         run: |
@@ -46,18 +49,43 @@ jobs:
             previousVersion = '';
           }
 
-          const changed = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
-            ? 'true'
-            : String(currentVersion !== previousVersion);
+          const versionBumped = currentVersion !== previousVersion;
+
+          let packagingTouched = false;
+          if (process.env.GITHUB_EVENT_NAME === 'push') {
+            try {
+              const names = cp
+                .execSync('git diff --name-only HEAD^ HEAD', { encoding: 'utf8' })
+                .trim()
+                .split(/\r?\n/)
+                .filter(Boolean);
+              packagingTouched = names.some((f) => {
+                return (
+                  f.startsWith('scripts/') ||
+                  f === '.github/workflows/build-extension-on-version-change.yml'
+                );
+              });
+            } catch (e) {
+              packagingTouched = false;
+            }
+          }
+
+          const event = process.env.GITHUB_EVENT_NAME;
+          const changed =
+            event === 'workflow_dispatch' || versionBumped || packagingTouched;
 
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `current=${currentVersion}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `previous=${previousVersion}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `reason=${versionBumped ? 'version' : packagingTouched ? 'packaging' : event === 'workflow_dispatch' ? 'dispatch' : 'none'}\n`,
+          );
           NODE
 
-      - name: Skip when version is unchanged
+      - name: Skip when nothing to build
         if: steps.version.outputs.changed != 'true'
-        run: echo "package.json 版本未变化，跳过打包与发布。"
+        run: echo "未检测到版本号变化或打包流水线相关变更，跳过打包与发布。（手动发布请在 Actions 里执行 workflow_dispatch）"
 
       - name: Sync manifest version
         if: steps.version.outputs.changed == 'true'
