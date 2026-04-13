@@ -273,37 +273,309 @@ async function sendFeishuNotification(lines) {
 // 上传状态跟踪（防止重复提交）
 // =============================================================
 
-// 正在上传的图片URL集合，用于防止重复提交
+// 正在上传的图片集合，用于防止重复提交
 const uploadingImages = new Set();
+
+function buildImageUploadKey(imageUrl, target) {
+  const normalizedUrl = String(imageUrl || '').trim();
+  const normalizedTarget = String(target || 'sticker').trim();
+  return `${normalizedTarget}::${normalizedUrl}`;
+}
 
 /**
  * 检查图片是否正在上传
  * @param {string} imageUrl - 图片URL
  * @returns {boolean} - 是否正在上传
  */
-function isImageUploading(imageUrl) {
-  return uploadingImages.has(imageUrl);
+function isImageUploading(imageUrl, target) {
+  return uploadingImages.has(buildImageUploadKey(imageUrl, target));
 }
 
 /**
  * 标记图片开始上传
  * @param {string} imageUrl - 图片URL
  */
-function markImageUploading(imageUrl) {
-  uploadingImages.add(imageUrl);
+function markImageUploading(imageUrl, target) {
+  uploadingImages.add(buildImageUploadKey(imageUrl, target));
 }
 
 /**
  * 标记图片上传完成（成功或失败）
  * @param {string} imageUrl - 图片URL
  */
-function markImageUploadComplete(imageUrl) {
-  uploadingImages.delete(imageUrl);
+function markImageUploadComplete(imageUrl, target) {
+  uploadingImages.delete(buildImageUploadKey(imageUrl, target));
 }
 
 // =============================================================
 // 通用 UI 工具函数（Loading 和 Toast）
 // =============================================================
+
+const tabBadgeTimers = new Map();
+
+function clearTabBadge(tabId) {
+  if (tabId == null) return;
+
+  const timer = tabBadgeTimers.get(tabId);
+  if (timer) {
+    clearTimeout(timer);
+    tabBadgeTimers.delete(tabId);
+  }
+
+  try {
+    chrome.action.setBadgeText({ tabId, text: '' });
+    chrome.action.setTitle({ tabId, title: 'YiShe 工具集' });
+  } catch (error) {
+    // 静默忽略 badge 设置失败
+  }
+}
+
+function setTabBadge(tabId, text, color, title, duration) {
+  if (tabId == null) return;
+
+  const timer = tabBadgeTimers.get(tabId);
+  if (timer) {
+    clearTimeout(timer);
+    tabBadgeTimers.delete(tabId);
+  }
+
+  try {
+    chrome.action.setBadgeBackgroundColor({ tabId, color });
+    chrome.action.setBadgeText({ tabId, text });
+    chrome.action.setTitle({ tabId, title: title || 'YiShe 工具集' });
+  } catch (error) {
+    // 静默忽略 badge 设置失败
+  }
+
+  if (duration && duration > 0) {
+    const timeoutId = setTimeout(() => {
+      clearTabBadge(tabId);
+    }, duration);
+    tabBadgeTimers.set(tabId, timeoutId);
+  }
+}
+
+function syncBadgeWithLoading(tabId, action, message) {
+  if (action === 'show') {
+    setTabBadge(tabId, '...', '#2563eb', message || '处理中...');
+    return;
+  }
+
+  clearTabBadge(tabId);
+}
+
+function syncBadgeWithToast(tabId, level, message, duration) {
+  const badgeMap = {
+    success: { text: 'OK', color: '#16a34a' },
+    error: { text: 'ERR', color: '#dc2626' },
+    warning: { text: '!', color: '#d97706' },
+    info: { text: '...', color: '#2563eb' }
+  };
+
+  const badgeMeta = badgeMap[level] || badgeMap.info;
+  setTabBadge(
+    tabId,
+    badgeMeta.text,
+    badgeMeta.color,
+    message || 'YiShe 工具集',
+    typeof duration === 'number' ? duration : 3200
+  );
+}
+
+function injectTabUiFallback(tabId, payload) {
+  if (tabId == null) return;
+
+  try {
+    chrome.scripting.executeScript({
+      target: { tabId },
+      func: (uiPayload) => {
+        const doc = document;
+        const host = doc.body || doc.documentElement;
+        if (!host) return;
+
+        if (uiPayload.type === 'core:toast' && window.CoreToast?.show) {
+          window.CoreToast.show({
+            message: uiPayload.message || '',
+            type: uiPayload.level || 'info',
+            duration: uiPayload.duration
+          });
+          return;
+        }
+
+        if (uiPayload.type === 'core:loading' && window.CoreLoading) {
+          if (uiPayload.action === 'show') {
+            window.CoreLoading.show(uiPayload.message || '处理中...');
+          } else {
+            window.CoreLoading.hide();
+          }
+          return;
+        }
+
+        const STYLE_ID = 'yishe-fallback-ui-style';
+        const TOAST_ROOT_ID = 'yishe-fallback-toast-root';
+        const LOADING_ROOT_ID = 'yishe-fallback-loading-root';
+
+        if (!doc.getElementById(STYLE_ID)) {
+          const style = doc.createElement('style');
+          style.id = STYLE_ID;
+          style.textContent = `
+            #${TOAST_ROOT_ID} {
+              position: fixed;
+              top: 16px;
+              right: 16px;
+              z-index: 2147483647;
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              pointer-events: none;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+
+            .yishe-fallback-toast {
+              min-width: 240px;
+              max-width: 360px;
+              padding: 12px 14px;
+              border-radius: 12px;
+              color: #fff;
+              font-size: 13px;
+              line-height: 1.5;
+              box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+              backdrop-filter: blur(10px);
+              background: rgba(15, 23, 42, 0.94);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              pointer-events: auto;
+            }
+
+            .yishe-fallback-toast-info { border-left: 4px solid #3b82f6; }
+            .yishe-fallback-toast-success { border-left: 4px solid #22c55e; }
+            .yishe-fallback-toast-warning { border-left: 4px solid #f59e0b; }
+            .yishe-fallback-toast-error { border-left: 4px solid #ef4444; }
+
+            #${LOADING_ROOT_ID} {
+              position: fixed;
+              inset: 0;
+              z-index: 2147483646;
+              display: none;
+              align-items: center;
+              justify-content: center;
+              background: rgba(0, 0, 0, 0.35);
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+
+            #${LOADING_ROOT_ID}.is-visible {
+              display: flex;
+            }
+
+            .yishe-fallback-loading-card {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              min-width: 220px;
+              max-width: 360px;
+              padding: 16px 18px;
+              border-radius: 14px;
+              background: rgba(15, 23, 42, 0.96);
+              color: #fff;
+              box-shadow: 0 20px 50px rgba(0, 0, 0, 0.32);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+
+            .yishe-fallback-loading-spinner {
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              border: 3px solid rgba(255, 255, 255, 0.18);
+              border-top-color: #60a5fa;
+              animation: yishe-fallback-spin 0.8s linear infinite;
+              flex-shrink: 0;
+            }
+
+            .yishe-fallback-loading-text {
+              font-size: 13px;
+              line-height: 1.5;
+            }
+
+            @keyframes yishe-fallback-spin {
+              to { transform: rotate(360deg); }
+            }
+          `;
+          (doc.head || host).appendChild(style);
+        }
+
+        function ensureToastRoot() {
+          let root = doc.getElementById(TOAST_ROOT_ID);
+          if (!root) {
+            root = doc.createElement('div');
+            root.id = TOAST_ROOT_ID;
+            host.appendChild(root);
+          }
+          return root;
+        }
+
+        function ensureLoadingRoot() {
+          let root = doc.getElementById(LOADING_ROOT_ID);
+          if (!root) {
+            root = doc.createElement('div');
+            root.id = LOADING_ROOT_ID;
+            root.innerHTML = `
+              <div class="yishe-fallback-loading-card">
+                <div class="yishe-fallback-loading-spinner"></div>
+                <div class="yishe-fallback-loading-text">处理中...</div>
+              </div>
+            `;
+            host.appendChild(root);
+          }
+          return root;
+        }
+
+        if (uiPayload.type === 'core:loading') {
+          const root = ensureLoadingRoot();
+          const textEl = root.querySelector('.yishe-fallback-loading-text');
+          if (uiPayload.action === 'show') {
+            if (textEl) {
+              textEl.textContent = uiPayload.message || '处理中...';
+            }
+            root.classList.add('is-visible');
+          } else {
+            root.classList.remove('is-visible');
+          }
+          return;
+        }
+
+        if (uiPayload.type === 'core:toast' && uiPayload.message) {
+          const root = ensureToastRoot();
+          const toast = doc.createElement('div');
+          toast.className = `yishe-fallback-toast yishe-fallback-toast-${uiPayload.level || 'info'}`;
+          toast.textContent = uiPayload.message;
+          root.appendChild(toast);
+          const delay = typeof uiPayload.duration === 'number' ? uiPayload.duration : 3200;
+          setTimeout(() => {
+            if (toast.parentNode) {
+              toast.parentNode.removeChild(toast);
+            }
+          }, delay);
+        }
+      },
+      args: [payload]
+    }, () => {
+      if (chrome.runtime.lastError) {
+        // 静默忽略 fallback 注入失败
+      }
+    });
+  } catch (error) {
+    // 静默忽略 fallback 注入失败
+  }
+}
+
+function dispatchTabUiMessage(tabId, payload) {
+  if (tabId == null) return;
+
+  chrome.tabs.sendMessage(tabId, payload, (response) => {
+    if (chrome.runtime.lastError || !response?.ok) {
+      injectTabUiFallback(tabId, payload);
+    }
+  });
+}
 
 /**
  * 显示或隐藏 Loading 蒙层
@@ -314,20 +586,12 @@ function markImageUploadComplete(imageUrl) {
 function showLoading(tabId, action = 'show', message = '处理中...') {
   if (tabId == null) return;
 
-  chrome.tabs.sendMessage(
-    tabId,
-    {
-      type: 'core:loading',
-      action: action,
-      message: action === 'show' ? message : undefined
-    },
-    () => {
-      // 忽略错误（content script 可能未加载）
-      if (chrome.runtime.lastError) {
-        // 静默忽略错误
-      }
-    }
-  );
+  syncBadgeWithLoading(tabId, action, message);
+  dispatchTabUiMessage(tabId, {
+    type: 'core:loading',
+    action: action,
+    message: action === 'show' ? message : undefined
+  });
 }
 
 /**
@@ -340,21 +604,13 @@ function showLoading(tabId, action = 'show', message = '处理中...') {
 function showToast(tabId, level, message, duration) {
   if (tabId == null || !message) return;
 
-  chrome.tabs.sendMessage(
-    tabId,
-    {
-      type: 'core:toast',
-      level: level,
-      message: message,
-      duration: duration
-    },
-    () => {
-      // 忽略错误（content script 可能未加载）
-      if (chrome.runtime.lastError) {
-        // 静默忽略错误
-      }
-    }
-  );
+  syncBadgeWithToast(tabId, level, message, duration);
+  dispatchTabUiMessage(tabId, {
+    type: 'core:toast',
+    level: level,
+    message: message,
+    duration: duration
+  });
 }
 
 /**
@@ -1571,16 +1827,33 @@ async function ensureEndpoint() {
       STORAGE_WS_BASE_URL_KEY,
     ]);
     const storedEndpoint = result[STORAGE_ENDPOINT_KEY];
-    const isCustom = Boolean(result[STORAGE_ENDPOINT_CUSTOM_KEY] && storedEndpoint);
+    const normalizedStoredEndpoint = normalizeServiceUrl(storedEndpoint);
+    const isCustom = Boolean(
+      result[STORAGE_ENDPOINT_CUSTOM_KEY] &&
+      normalizedStoredEndpoint &&
+      !isOpenSourcePlaceholderUrl(normalizedStoredEndpoint)
+    );
 
     if (isCustom) {
-      wsEndpoint = storedEndpoint;
+      wsEndpoint = normalizedStoredEndpoint;
       log('使用自定义 WebSocket 端点:', wsEndpoint);
     } else {
       const devModeEnabled = Boolean(result[STORAGE_DEV_MODE_KEY]);
+      const storedModeEndpoint = devModeEnabled
+        ? result[STORAGE_DEV_WS_BASE_URL_KEY]
+        : result[STORAGE_WS_BASE_URL_KEY];
+      const normalizedModeEndpoint = normalizeServiceUrl(storedModeEndpoint);
       wsEndpoint = devModeEnabled
-        ? (result[STORAGE_DEV_WS_BASE_URL_KEY] || DEFAULT_DEV_WS_ENDPOINT)
-        : (result[STORAGE_WS_BASE_URL_KEY] || DEFAULT_PROD_WS_ENDPOINT);
+        ? (
+            normalizedModeEndpoint && !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
+              ? normalizedModeEndpoint
+              : DEFAULT_DEV_WS_ENDPOINT
+          )
+        : (
+            normalizedModeEndpoint && !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
+              ? normalizedModeEndpoint
+              : DEFAULT_PROD_WS_ENDPOINT
+          );
       log(`使用${devModeEnabled ? '开发' : '生产'} WebSocket 端点:`, wsEndpoint);
       await storageSet({
         [STORAGE_ENDPOINT_KEY]: wsEndpoint,
@@ -1902,11 +2175,19 @@ function initContextMenus() {
       contexts: ['selection']
     });
 
-    // 1-3）上传图片到素材库
+    // 1-3）上传图片到图片素材库
     chrome.contextMenus.create({
-      id: 'upload-image-to-crawler',
+      id: 'upload-image-to-sticker',
       parentId: 'yishe-group-collect',
-      title: '上传图片到素材库（AI分析）',
+      title: '上传到图片素材库',
+      contexts: ['image']
+    });
+
+    // 1-4）上传图片到爬图素材库
+    chrome.contextMenus.create({
+      id: 'upload-image-to-crawler-material',
+      parentId: 'yishe-group-collect',
+      title: '上传到爬图素材库',
       contexts: ['image']
     });
 
@@ -1975,69 +2256,50 @@ async function copyToClipboard(text) {
   }
 }
 
-/**
- * 显示上传弹窗（包含文字框选功能）
- * @param {number|null} tabId - 标签页 ID
- * @param {Object} imageInfo - 图片信息
- * @returns {Promise<Object>} - 上传结果
- */
-function showUploadDialog(tabId, imageInfo) {
-  return new Promise((resolve, reject) => {
-    // 发送消息到content script显示上传弹窗
-    chrome.tabs.sendMessage(
-      tabId,
-      {
-        type: 'yishe:show-upload-dialog',
-        data: imageInfo
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          log('[UploadDialog] 显示弹窗失败:', chrome.runtime.lastError.message);
-          reject(new Error('显示上传弹窗失败'));
-          return;
-        }
+function resolveUploadTargetMeta(target) {
+  if (target === 'crawler-material') {
+    return {
+      label: 'YiShe 爬图素材库',
+      loadingMessage: '正在上传图片到 YiShe 爬图素材库...',
+      successMessage: '图片已上传到 YiShe 爬图素材库',
+      duplicateMessage: '图片正在上传到 YiShe 爬图素材库，请稍候...',
+    };
+  }
 
-        if (response && response.action === 'upload') {
-          log('[UploadDialog] 用户确认上传，包含文字:', !!response.selectedText);
-
-          // 立即显示 loading
-          markImageUploading(imageInfo.imageUrl);
-          showLoading(tabId, 'show', '正在上传图片到 YiShe 素材库...');
-
-          // 只返回用户选择，不执行上传
-          resolve({ success: true, selectedText: response.selectedText || '' });
-        } else {
-          log('[UploadDialog] 用户取消上传');
-          reject(new Error('用户取消'));
-        }
-      }
-    );
-  });
+  return {
+    label: 'YiShe 图片素材库',
+    loadingMessage: '正在上传图片到 YiShe 图片素材库...',
+    successMessage: '图片已上传到 YiShe 图片素材库',
+    duplicateMessage: '图片正在上传到 YiShe 图片素材库，请稍候...',
+  };
 }
 
 /**
  * 执行图片上传
  * @param {number|null} tabId - 标签页 ID
  * @param {string} imageUrl - 图片URL
- * @param {string} selectedText - 选中的文字
+ * @param {'sticker' | 'crawler-material'} target - 上传目标
  * @returns {Promise<Object>} - 上传结果
  */
-async function performUpload(tabId, imageUrl, selectedText) {
-  log('[Upload] 开始上传图片:', { tabId, imageUrl, selectedText: selectedText?.substring(0, 50) + '...' });
+async function performUpload(tabId, imageUrl, target) {
+  const targetMeta = resolveUploadTargetMeta(target);
+  log('[Upload] 开始上传图片:', { tabId, imageUrl, target });
   try {
+    markImageUploading(imageUrl, target);
+    showLoading(tabId, 'show', targetMeta.loadingMessage);
+
     // 调用本地 yishe-client 提供的接口
     const payload = {
       url: imageUrl,
       name: '',          // 可以以后改成从图片 alt / 描述推断
       description: '',   // 暂时留空，由服务端或后续编辑补充
       keywords: '',      // 暂时留空
-      useAiGenerate: true,  // 启用AI自动生成图片信息
-      ...(selectedText ? { aiGenerateRawInfo: selectedText } : {})  // 添加AI分析的原始信息（如果有）
+      target
     };
 
     const clientBaseUrl = await getEffectiveClientBaseUrl();
-    const clientUploadPath = (typeof self !== 'undefined' && self.ApiConfig?.CLIENT_ENDPOINTS?.CRAWLER_MATERIAL_UPLOAD)
-      || '/api/crawler-material-upload';
+    const clientUploadPath = (typeof self !== 'undefined' && self.ApiConfig?.CLIENT_ENDPOINTS?.MATERIAL_UPLOAD)
+      || '/api/material-upload';
     const clientUploadUrl = `${clientBaseUrl}${clientUploadPath}`;
 
     const response = await fetch(clientUploadUrl, {
@@ -2072,17 +2334,17 @@ async function performUpload(tabId, imageUrl, selectedText) {
     log('[Upload] 图片上传接口响应:', result);
     console.log('[YiShe][UploadImage] 图片上传完成:', {
       imageUrl,
-      selectedText: selectedText ? selectedText.substring(0, 50) + '...' : '',
+      target,
       result
     });
 
-    markImageUploadComplete(imageUrl);
+    markImageUploadComplete(imageUrl, target);
 
     return { success: true, result };
   } catch (error) {
     log('[Upload] 上传异常:', serializeError(error));
     console.error('[YiShe][UploadImage] 上传异常:', error);
-    markImageUploadComplete(imageUrl);
+    markImageUploadComplete(imageUrl, target);
     throw error;
   }
 }
@@ -2174,11 +2436,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 3）上传图片到 YiShe 素材库（带AI分析）
-    if (info.menuItemId === 'upload-image-to-crawler') {
+    // 3）上传图片到 YiShe 图片素材 / 爬图素材
+    if (
+      info.menuItemId === 'upload-image-to-sticker' ||
+      info.menuItemId === 'upload-image-to-crawler-material'
+    ) {
       const imageUrl = info.srcUrl || null;
       const pageUrl = info.pageUrl || tab?.url || null;
       const pageTitle = tab?.title || null;
+      const target =
+        info.menuItemId === 'upload-image-to-crawler-material'
+          ? 'crawler-material'
+          : 'sticker';
+      const targetMeta = resolveUploadTargetMeta(target);
 
       const tabId = getTabId(tab);
 
@@ -2190,53 +2460,28 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
 
       // 检查是否正在上传相同的图片
-      if (isImageUploading(imageUrl)) {
-        log('[ContextMenu] 图片正在上传中，跳过重复提交:', imageUrl);
-        showToast(tabId, 'info', '图片正在上传中，请稍候...');
+      if (isImageUploading(imageUrl, target)) {
+        log('[ContextMenu] 图片正在上传中，跳过重复提交:', { imageUrl, target });
+        showToast(tabId, 'info', targetMeta.duplicateMessage);
         return;
       }
 
-      log('[ContextMenu] 准备上传图片到素材库:', {
+      log('[ContextMenu] 准备上传图片:', {
         imageUrl,
         pageUrl,
-        pageTitle
+        pageTitle,
+        target,
       });
 
-      // 显示统一的上传弹窗
       try {
-        const uploadResult = await showUploadDialog(tabId, {
-          imageUrl,
-          pageUrl,
-          pageTitle
-        });
-
-        if (uploadResult.success) {
-          // 用户确认上传，开始执行上传流程
-          // loading 已经在 showUploadDialog 中显示了
-          log('[ContextMenu] 用户确认上传，开始执行，selectedText:', uploadResult.selectedText);
-
-          try {
-            // 执行上传
-            const result = await performUpload(tabId, imageUrl, uploadResult.selectedText || '');
-            log('[ContextMenu] 上传成功:', result);
-
-            // 上传成功
-            showLoading(tabId, 'hide');
-            showToast(tabId, 'success', '图片已上传到 YiShe 素材库');
-          } catch (uploadError) {
-            // 上传过程中的错误
-            log('[ContextMenu] 上传过程异常:', serializeError(uploadError));
-            showLoading(tabId, 'hide');
-            showToast(tabId, 'error', uploadError.message || '上传图片时发生异常，请稍后重试');
-          }
-        }
+        const result = await performUpload(tabId, imageUrl, target);
+        log('[ContextMenu] 上传成功:', result);
+        showLoading(tabId, 'hide');
+        showToast(tabId, 'success', targetMeta.successMessage);
       } catch (error) {
         log('[ContextMenu] 上传流程异常:', serializeError(error));
-        // 确保隐藏 loading
         showLoading(tabId, 'hide');
-        if (!error.message?.includes('用户取消')) {
-          showToast(tabId, 'error', '上传图片时发生异常，请稍后重试');
-        }
+        showToast(tabId, 'error', error.message || '上传图片时发生异常，请稍后重试');
       }
 
       return;

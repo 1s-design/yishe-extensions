@@ -232,24 +232,43 @@ async function isDevMode() {
   return Boolean(result[STORAGE_KEYS.DEV_MODE]);
 }
 
+function resolveStoredServiceUrl(storedValue, fallbackValue) {
+  const normalizedStoredValue = normalizeServiceUrl(storedValue);
+  return isConfiguredServiceUrl(normalizedStoredValue)
+    ? normalizedStoredValue
+    : fallbackValue;
+}
+
 async function getApiBaseUrl() {
   const devMode = await isDevMode();
   if (devMode) {
     const result = await storageGet([STORAGE_KEYS.DEV_API_BASE_URL]);
-    return result[STORAGE_KEYS.DEV_API_BASE_URL] || DEFAULT_CONFIG.DEV_API_BASE_URL;
+    return resolveStoredServiceUrl(
+      result[STORAGE_KEYS.DEV_API_BASE_URL],
+      DEFAULT_CONFIG.DEV_API_BASE_URL,
+    );
   }
   const result = await storageGet([STORAGE_KEYS.API_BASE_URL]);
-  return result[STORAGE_KEYS.API_BASE_URL] || DEFAULT_CONFIG.PROD_API_BASE_URL;
+  return resolveStoredServiceUrl(
+    result[STORAGE_KEYS.API_BASE_URL],
+    DEFAULT_CONFIG.PROD_API_BASE_URL,
+  );
 }
 
 async function getWsBaseUrl() {
   const devMode = await isDevMode();
   if (devMode) {
     const result = await storageGet([STORAGE_KEYS.DEV_WS_BASE_URL]);
-    return result[STORAGE_KEYS.DEV_WS_BASE_URL] || DEFAULT_CONFIG.DEV_WS_BASE_URL;
+    return resolveStoredServiceUrl(
+      result[STORAGE_KEYS.DEV_WS_BASE_URL],
+      DEFAULT_CONFIG.DEV_WS_BASE_URL,
+    );
   }
   const result = await storageGet([STORAGE_KEYS.WS_BASE_URL]);
-  return result[STORAGE_KEYS.WS_BASE_URL] || DEFAULT_CONFIG.PROD_WS_BASE_URL;
+  return resolveStoredServiceUrl(
+    result[STORAGE_KEYS.WS_BASE_URL],
+    DEFAULT_CONFIG.PROD_WS_BASE_URL,
+  );
 }
 
 async function setDevMode(enabled) {
