@@ -238,18 +238,6 @@ function guessExtension(url, contentType) {
   return '.jpg';
 }
 
-async function uploadMaterialToServer(payload) {
-  try {
-    const uploadPath = (typeof self !== 'undefined' && self.ApiConfig?.API_ENDPOINTS?.CRAWLER?.MATERIAL_ADD) || '/crawler/material/add';
-    return await apiRequestWithContext(uploadPath, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    throw new Error(`保存到服务器失败: ${serializeError(error)}`);
-  }
-}
-
 async function sendFeishuNotification(lines) {
   if (!FEISHU_WEBHOOK_URL) {
     return;
@@ -2059,6 +2047,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request?.action === 'collectPageImagesToCrawler') {
+    const tabId = sender?.tab?.id ?? null;
+    collectPageImagesToCrawler(tabId, request.imageUrls)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+    return true;
+  }
+
   if (request.action === 'saveData') {
     chrome.storage.local.get(['crawledData'], (result) => {
       const data = result.crawledData || [];
@@ -2191,6 +2187,14 @@ function initContextMenus() {
       contexts: ['image']
     });
 
+    // 1-5）批量采集当前页图片到爬图素材库
+    chrome.contextMenus.create({
+      id: PAGE_IMAGE_COLLECTOR_MENU_ID,
+      parentId: 'yishe-group-collect',
+      title: '批量采集当前页图片到爬图库',
+      contexts: ['all']
+    });
+
     // --- 分组 2: Temu 助手 ---
     chrome.contextMenus.create({
       id: 'yishe-group-temu',
@@ -2274,19 +2278,267 @@ function resolveUploadTargetMeta(target) {
   };
 }
 
+const PAGE_IMAGE_COLLECTOR_MENU_ID = 'collect-page-images-to-crawler-material';
+const PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE = 'yishe:page-image-collector:open';
+const PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE = 'yishe:page-image-collector:progress';
+
+function sendMessageToTab(tabId, payload) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, payload, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function ensurePageImageCollectorInjected(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: [
+      'content/utils/dom-utils.js',
+      'content/utils/ui-theme.js',
+      'content/utils/page-image-collector.js'
+    ]
+  });
+}
+
+async function openPageImageCollector(tabId) {
+  if (tabId == null) {
+    throw new Error('无法获取当前标签页');
+  }
+
+  try {
+    const response = await sendMessageToTab(tabId, {
+      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE
+    });
+    if (response?.ok) {
+      return response;
+    }
+  } catch (error) {
+    log('[PageImageCollector] 首次打开失败，尝试注入脚本:', serializeError(error));
+  }
+
+  try {
+    await ensurePageImageCollectorInjected(tabId);
+    const response = await sendMessageToTab(tabId, {
+      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE
+    });
+    if (response?.ok) {
+      return response;
+    }
+  } catch (error) {
+    log('[PageImageCollector] 注入采集面板失败:', serializeError(error));
+  }
+
+  throw new Error('无法打开当前页图片采集面板，请刷新页面后重试');
+}
+
+function notifyPageImageCollectorProgress(tabId, payload) {
+  if (tabId == null) {
+    return;
+  }
+
+  chrome.tabs.sendMessage(tabId, {
+    type: PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE,
+    ...payload
+  }, () => {
+    if (chrome.runtime.lastError) {
+      // 内容脚本未就绪时静默忽略
+    }
+  });
+}
+
+function normalizeBatchImageUrls(imageUrls) {
+  const normalizedUrls = [];
+  const seen = new Set();
+
+  for (const value of Array.isArray(imageUrls) ? imageUrls : []) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        continue;
+      }
+
+      const normalized = parsed.href;
+      if (seen.has(normalized)) {
+        continue;
+      }
+
+      seen.add(normalized);
+      normalizedUrls.push(normalized);
+    } catch (error) {
+      // 忽略非法地址
+    }
+  }
+
+  return normalizedUrls;
+}
+
+function shouldAbortCrawlerBatchUpload(error) {
+  const message = serializeError(error);
+  return (
+    message.includes('无法连接到 YiShe 客户端服务') ||
+    message.includes('Failed to fetch') ||
+    message.includes('fetch failed') ||
+    message.includes('ECONNREFUSED') ||
+    message.includes('ERR_CONNECTION_REFUSED')
+  );
+}
+
+function buildCrawlerBatchSummaryMessage(summary) {
+  const parts = [
+    `批量采集完成：成功 ${summary.successCount} 张`
+  ];
+
+  if (summary.failedCount > 0) {
+    parts.push(`失败 ${summary.failedCount} 张`);
+  }
+
+  if (summary.skippedCount > 0) {
+    parts.push(`跳过 ${summary.skippedCount} 张`);
+  }
+
+  if (summary.abortedCount > 0) {
+    parts.push(`未继续 ${summary.abortedCount} 张`);
+  }
+
+  return parts.join('，');
+}
+
+async function collectPageImagesToCrawler(tabId, imageUrls) {
+  const normalizedUrls = normalizeBatchImageUrls(imageUrls);
+  if (!normalizedUrls.length) {
+    throw new Error('当前页面没有可采集的图片');
+  }
+
+  const total = normalizedUrls.length;
+  let successCount = 0;
+  let failedCount = 0;
+  let skippedCount = 0;
+  let abortedCount = 0;
+  const failures = [];
+
+  notifyPageImageCollectorProgress(tabId, {
+    phase: 'start',
+    total
+  });
+
+  for (let index = 0; index < normalizedUrls.length; index += 1) {
+    const imageUrl = normalizedUrls[index];
+    const current = index + 1;
+    const progressMessage = `正在采集到 YiShe 爬图素材库（${current}/${total}）...`;
+
+    setTabBadge(tabId, '...', '#2563eb', progressMessage);
+
+    let status = 'success';
+    let itemMessage = '图片已上传到 YiShe 爬图素材库';
+
+    try {
+      if (isImageUploading(imageUrl, 'crawler-material')) {
+        status = 'skipped';
+        skippedCount += 1;
+        itemMessage = '图片正在上传中，已跳过';
+      } else {
+        await performUpload(tabId, imageUrl, 'crawler-material', {
+          loadingMessage: progressMessage,
+          showLoadingOverlay: false
+        });
+        successCount += 1;
+      }
+    } catch (error) {
+      status = 'error';
+      failedCount += 1;
+      itemMessage = serializeError(error) || '上传失败';
+      failures.push({
+        imageUrl,
+        message: itemMessage
+      });
+
+      if (shouldAbortCrawlerBatchUpload(error)) {
+        abortedCount = total - current;
+      }
+    }
+
+    notifyPageImageCollectorProgress(tabId, {
+      phase: 'item',
+      current,
+      total,
+      url: imageUrl,
+      status,
+      message: itemMessage,
+      successCount,
+      failedCount,
+      skippedCount,
+      abortedCount
+    });
+
+    if (abortedCount > 0) {
+      break;
+    }
+  }
+
+  const summary = {
+    total,
+    successCount,
+    failedCount,
+    skippedCount,
+    abortedCount,
+    failures
+  };
+  const summaryMessage = buildCrawlerBatchSummaryMessage(summary);
+  const toastLevel = failedCount > 0 || abortedCount > 0
+    ? (successCount > 0 ? 'warning' : 'error')
+    : 'success';
+
+  showToast(tabId, toastLevel, summaryMessage, 4200);
+  notifyPageImageCollectorProgress(tabId, {
+    phase: 'complete',
+    message: summaryMessage,
+    ...summary
+  });
+
+  return {
+    success: true,
+    data: {
+      ...summary,
+      message: summaryMessage,
+      level: toastLevel
+    }
+  };
+}
+
 /**
  * 执行图片上传
  * @param {number|null} tabId - 标签页 ID
  * @param {string} imageUrl - 图片URL
  * @param {'sticker' | 'crawler-material'} target - 上传目标
+ * @param {Object} [options] - 额外选项
  * @returns {Promise<Object>} - 上传结果
  */
-async function performUpload(tabId, imageUrl, target) {
+async function performUpload(tabId, imageUrl, target, options = {}) {
   const targetMeta = resolveUploadTargetMeta(target);
+  const loadingMessage = typeof options.loadingMessage === 'string' && options.loadingMessage.trim()
+    ? options.loadingMessage.trim()
+    : targetMeta.loadingMessage;
+  const showLoadingOverlay = options.showLoadingOverlay !== false;
   log('[Upload] 开始上传图片:', { tabId, imageUrl, target });
   try {
     markImageUploading(imageUrl, target);
-    showLoading(tabId, 'show', targetMeta.loadingMessage);
+    if (showLoadingOverlay) {
+      showLoading(tabId, 'show', loadingMessage);
+    }
 
     // 调用本地 yishe-client 提供的接口
     const payload = {
@@ -2345,7 +2597,16 @@ async function performUpload(tabId, imageUrl, target) {
     log('[Upload] 上传异常:', serializeError(error));
     console.error('[YiShe][UploadImage] 上传异常:', error);
     markImageUploadComplete(imageUrl, target);
-    throw error;
+    const errorMessage = serializeError(error);
+    if (
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('fetch failed') ||
+      errorMessage.includes('ECONNREFUSED') ||
+      errorMessage.includes('ERR_CONNECTION_REFUSED')
+    ) {
+      throw new Error('无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动');
+    }
+    throw error instanceof Error ? error : new Error(errorMessage);
   }
 }
 
@@ -2436,7 +2697,27 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 3）上传图片到 YiShe 图片素材 / 爬图素材
+    // 3）批量采集当前页图片到 YiShe 爬图素材库
+    if (info.menuItemId === PAGE_IMAGE_COLLECTOR_MENU_ID) {
+      const tabId = getTabId(tab);
+      const pageUrl = tab?.url || info.pageUrl || '';
+
+      if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) {
+        showToast(tabId, 'warning', '当前页面不支持批量采集，请切换到普通网页后重试');
+        return;
+      }
+
+      try {
+        await openPageImageCollector(tabId);
+      } catch (error) {
+        log('[ContextMenu] 打开当前页图片采集面板失败:', serializeError(error));
+        showToast(tabId, 'error', error.message || '打开当前页图片采集面板失败，请刷新页面后重试');
+      }
+
+      return;
+    }
+
+    // 4）上传图片到 YiShe 图片素材 / 爬图素材
     if (
       info.menuItemId === 'upload-image-to-sticker' ||
       info.menuItemId === 'upload-image-to-crawler-material'
@@ -2487,7 +2768,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 4）清空 Temu 缓存
+    // 5）清空 Temu 缓存
     if (info.menuItemId === 'clear-temu-cache') {
       const tabId = getTabId(tab);
       const url = tab?.url || '';

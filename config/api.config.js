@@ -8,13 +8,12 @@
 
 const OPEN_SOURCE_PROD_DEFAULTS = {
   // 远程后端服务地址
-  API_BASE_URL: 'https://api.1s.design/api',
-  WS_BASE_URL: 'https://api.1s.design/ws',
-  // 插件与本地客户端的桥接仍然固定走本机
+  API_BASE_URL: 'http://api.1s.design/api',
+  WS_BASE_URL: 'http://api.1s.design/ws',
+  // 插件与本地客户端的桥接固定走本机 Electron 服务
   CLIENT_BASE_URL: 'http://localhost:1519',
-  CRAWLER_MATERIAL_UPLOAD_URL: 'https://api.1s.design/api/crawler/material/add',
   FEISHU_WEBHOOK_URL: '',
-  LOCATION_ENDPOINT: 'https://ipapi.co/json/',
+  LOCATION_ENDPOINT: 'http://ipapi.co/json/',
 };
 
 // 生产环境配置
@@ -25,8 +24,6 @@ const PROD_CONFIG = {
   WS_BASE_URL: OPEN_SOURCE_PROD_DEFAULTS.WS_BASE_URL,
   // 本地客户端地址（Electron）
   CLIENT_BASE_URL: OPEN_SOURCE_PROD_DEFAULTS.CLIENT_BASE_URL,
-  // 爬虫素材上传接口
-  CRAWLER_MATERIAL_UPLOAD_URL: OPEN_SOURCE_PROD_DEFAULTS.CRAWLER_MATERIAL_UPLOAD_URL,
   // 飞书 Webhook（可选）
   FEISHU_WEBHOOK_URL: OPEN_SOURCE_PROD_DEFAULTS.FEISHU_WEBHOOK_URL,
   // 位置信息接口
@@ -41,12 +38,10 @@ const DEV_CONFIG = {
   WS_BASE_URL: 'http://localhost:1520/ws',
   // 本地客户端地址（Electron）
   CLIENT_BASE_URL: 'http://localhost:1519',
-  // 爬虫素材上传接口
-  CRAWLER_MATERIAL_UPLOAD_URL: 'http://localhost:1520/api/crawler/material/add',
   // 飞书 Webhook（可选）
   FEISHU_WEBHOOK_URL: '',
   // 位置信息接口
-  LOCATION_ENDPOINT: 'https://ipapi.co/json/',
+  LOCATION_ENDPOINT: 'http://ipapi.co/json/',
 };
 
 // API 接口路径（相对路径，会与 API_BASE_URL 拼接）
@@ -80,18 +75,12 @@ const API_ENDPOINTS = {
     DELETE: '/sentences/:id',
     AI_ANALYZE: '/sentences/ai-analyze',
   },
-  // 爬虫相关
-  CRAWLER: {
-    MATERIAL_ADD: '/crawler/material/add',
-  },
 };
 
 // 本地客户端接口路径（相对路径，会与 CLIENT_BASE_URL 拼接）
 const CLIENT_ENDPOINTS = {
-  // 通用图片上传到本地客户端，由客户端按 target 决定落库位置
+  // 通用图片上传到本地客户端，由客户端按 target 决定落图库或爬图库
   MATERIAL_UPLOAD: '/api/material-upload',
-  // 兼容旧命名
-  CRAWLER_MATERIAL_UPLOAD: '/api/material-upload',
 };
 
 // 导出配置

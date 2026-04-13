@@ -1,25 +1,66 @@
 // 登录页面逻辑
 (async function() {
-  // 动态加载 API 工具
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('utils/api.js');
-  document.head.appendChild(script);
-  
-  // 等待脚本加载
-  await new Promise((resolve, reject) => {
-    script.onload = () => {
-      // 等待一小段时间确保 ApiUtils 已挂载到 window
-      setTimeout(() => {
-        if (window.ApiUtils) {
-          resolve();
-        } else {
-          reject(new Error('ApiUtils 未加载'));
-        }
-      }, 50);
-    };
-    script.onerror = () => reject(new Error('加载 api.js 失败'));
-    setTimeout(() => reject(new Error('加载 api.js 超时')), 2000);
-  });
+  function loadScript(scriptId, scriptUrl, errorMessage, validator) {
+    return new Promise((resolve, reject) => {
+      const existing = document.getElementById(scriptId);
+      if (existing && validator()) {
+        resolve();
+        return;
+      }
+
+      const script = existing || document.createElement('script');
+      script.id = scriptId;
+      script.src = scriptUrl;
+
+      const timer = setTimeout(() => {
+        reject(new Error(`${errorMessage} 超时`));
+      }, 2000);
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        script.removeEventListener('load', handleLoad);
+        script.removeEventListener('error', handleError);
+      };
+
+      const handleLoad = () => {
+        window.setTimeout(() => {
+          if (validator()) {
+            cleanup();
+            resolve();
+          } else {
+            cleanup();
+            reject(new Error(errorMessage));
+          }
+        }, 50);
+      };
+
+      const handleError = () => {
+        cleanup();
+        reject(new Error(errorMessage));
+      };
+
+      script.addEventListener('load', handleLoad);
+      script.addEventListener('error', handleError);
+
+      if (!existing) {
+        document.head.appendChild(script);
+      }
+    });
+  }
+
+  await loadScript(
+    'yishe-api-config-script',
+    chrome.runtime.getURL('config/api.config.js'),
+    '加载 api.config.js 失败',
+    () => Boolean(window.ApiConfig)
+  );
+
+  await loadScript(
+    'yishe-api-utils-script',
+    chrome.runtime.getURL('utils/api.js'),
+    '加载 api.js 失败',
+    () => Boolean(window.ApiUtils)
+  );
   
   const ApiUtils = window.ApiUtils;
   

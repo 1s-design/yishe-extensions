@@ -1,10 +1,64 @@
 ;(function () {
   const registry = window.ControlFeatureRegistry;
   const API_UTILS_SCRIPT_ID = 'yishe-api-utils-script';
+  const API_CONFIG_SCRIPT_ID = 'yishe-api-config-script';
   let apiUtilsPromise = null;
 
   function getApiScriptUrl() {
     return chrome?.runtime?.getURL('utils/api.js') || '../utils/api.js';
+  }
+
+  function getApiConfigScriptUrl() {
+    return chrome?.runtime?.getURL('config/api.config.js') || '../config/api.config.js';
+  }
+
+  function loadRuntimeScript({ scriptId, scriptUrl, validator, errorMessage }) {
+    return new Promise((resolve, reject) => {
+      const existing = document.getElementById(scriptId);
+      if (existing && validator()) {
+        resolve();
+        return;
+      }
+
+      const script = existing || document.createElement('script');
+      script.id = scriptId;
+      script.src = scriptUrl;
+
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error(`${errorMessage} 超时`));
+      }, 3000);
+
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        script.removeEventListener('load', handleLoad);
+        script.removeEventListener('error', handleError);
+      };
+
+      const handleLoad = () => {
+        window.setTimeout(() => {
+          if (validator()) {
+            cleanup();
+            resolve();
+          } else {
+            cleanup();
+            reject(new Error(errorMessage));
+          }
+        }, 30);
+      };
+
+      const handleError = () => {
+        cleanup();
+        reject(new Error(errorMessage));
+      };
+
+      script.addEventListener('load', handleLoad);
+      script.addEventListener('error', handleError);
+
+      if (!existing) {
+        document.head.appendChild(script);
+      }
+    });
   }
 
   async function ensureApiUtils() {
@@ -12,36 +66,23 @@
       return window.ApiUtils;
     }
     if (!apiUtilsPromise) {
-      apiUtilsPromise = new Promise((resolve, reject) => {
-        let script = document.getElementById(API_UTILS_SCRIPT_ID);
-        const resolveWithUtils = () => resolve(window.ApiUtils);
-        const rejectWithError = (event) =>
-          reject(event?.error || new Error('ApiUtils 加载失败'));
+      apiUtilsPromise = (async () => {
+        await loadRuntimeScript({
+          scriptId: API_CONFIG_SCRIPT_ID,
+          scriptUrl: getApiConfigScriptUrl(),
+          validator: () => Boolean(window.ApiConfig),
+          errorMessage: 'ApiConfig 加载失败'
+        });
 
-        if (!script) {
-          script = document.createElement('script');
-          script.id = API_UTILS_SCRIPT_ID;
-          script.src = getApiScriptUrl();
-          script.onload = () => {
-            script.dataset.loaded = 'true';
-            resolveWithUtils();
-          };
-          script.onerror = rejectWithError;
-          document.head.appendChild(script);
-          return;
-        }
+        await loadRuntimeScript({
+          scriptId: API_UTILS_SCRIPT_ID,
+          scriptUrl: getApiScriptUrl(),
+          validator: () => Boolean(window.ApiUtils),
+          errorMessage: 'ApiUtils 加载失败'
+        });
 
-        if (script.dataset.loaded === 'true' && window.ApiUtils) {
-          resolveWithUtils();
-          return;
-        }
-
-        script.addEventListener('load', () => {
-          script.dataset.loaded = 'true';
-          resolveWithUtils();
-        }, { once: true });
-        script.addEventListener('error', rejectWithError, { once: true });
-      }).catch((error) => {
+        return window.ApiUtils;
+      })().catch((error) => {
         apiUtilsPromise = null;
         throw error;
       });
