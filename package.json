@@ -1,13 +1,32 @@
 {
   "name": "yishe-extensions",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
-  "description": "YiShe browser extension release helpers",
+  "description": "YiShe browser extension rebuilt with WXT, Vue, and Element Plus",
   "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "compile": "vue-tsc --noEmit",
+    "clean": "wxt clean",
     "version:sync": "node scripts/sync-version.js",
-    "build:release": "npm run version:sync && node scripts/build-release.js"
+    "build:release": "npm run clean && npm run version:sync && npm run build && node scripts/build-release.js",
+    "postinstall": "wxt prepare"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "element-plus": "^2.13.7",
+    "socket.io-client": "^4.8.3",
+    "vue": "^3.5.32"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.40",
+    "@wxt-dev/module-vue": "^1.0.3",
+    "typescript": "^5.9.3",
+    "unplugin-vue-components": "^32.0.0",
+    "vue-tsc": "^3.2.5",
+    "wxt": "^0.20.21"
   }
 }

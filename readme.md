@@ -1,159 +1,95 @@
-# Core 多功能工具集
+# YiShe Extensions
 
-一个多功能 Chrome 插件，聚焦通用工具面板与悬浮机器人 UI。
+YiShe 浏览器插件现已切换到 `WXT + Vue 3 + Element Plus` 工程体系。
 
-## 功能特点
+这次重构已经完成到“全量迁入 WXT 工程”的状态：
 
-- 🤖 **悬浮机器人**: 页面右下角显示悬浮面板入口
-- 🎨 **美观 UI**: 现代化的界面设计，流畅的动画效果
-- 🧰 **通用工具**: 提供页面信息、快捷操作等常用能力
-- 🖱️ **可拖拽**: 机器人图标可以拖拽到任意位置
+- 页面入口改为 `WXT entrypoints`
+- UI 栈改为 `Vue 3 + Element Plus`
+- 构建产物改为 WXT 输出的 `.output/chrome-mv3`
+- `background / content / api / config` 已迁入 `src/`
+- `public/` 仅保留真正需要的静态资源
 
-## 目录结构
+## 当前结构
 
-```
+```text
 yishe-extensions/
-├── manifest.json                 # 插件配置文件
-├── content/
-│   ├── content-base.js          # 基础 content script
-│   ├── components/
-│   │   └── floating-robot.js    # 悬浮机器人组件
-│   ├── sites/                   # 网站功能模块目录
-│   │   ├── common.js            # 通用功能（所有网站）
-│   │   ├── site1/               # 网站1的功能文件夹
-│   │   │   └── index.js         # 网站1的功能模块
-│   │   └── site2/               # 网站2的功能文件夹
-│   │       └── index.js         # 网站2的功能模块
-│   ├── styles/
-│   │   └── robot.css            # 机器人样式
-│   └── utils/                   # 工具函数
-│       ├── dom-utils.js         # DOM 操作工具
-│       └── site-detector.js     # 页面信息采集工具
-├── background/
-│   └── service-worker.js        # 后台服务 Worker
-├── popup/
-│   ├── popup.html               # 弹窗界面
-│   ├── popup.js                 # 弹窗逻辑
-│   └── popup.css                # 弹窗样式
-└── icons/                       # 插件图标（可选）
+├─ public/
+│  └─ assets/                    # 图标等静态资源
+├─ src/
+│  ├─ background/                # WXT 后台模块
+│  ├─ components/                # Vue 复用组件
+│  ├─ composables/               # 登录态、消息、连接状态等复用逻辑
+│  ├─ content/                   # WXT content script 模块与样式
+│  ├─ entrypoints/
+│  │  ├─ background.ts           # 后台入口
+│  │  ├─ content.ts              # content script 入口
+│  │  ├─ popup/                  # 插件 popup 页面
+│  │  ├─ login/                  # 登录页（unlisted page）
+│  │  └─ control/                # 控制台页（unlisted page）
+│  ├─ shared/                    # API、配置、扩展通信、格式化等共享模块
+│  └─ styles/                    # 全局样式和主题变量
+├─ scripts/
+│  ├─ sync-version.js            # 校验 package.json 版本
+│  └─ build-release.js           # 基于 WXT 产物生成发布目录
+├─ package.json
+├─ tsconfig.json
+└─ wxt.config.ts
 ```
 
-## 目录组织说明
+## 技术栈
 
-- **通用功能**: 放在 `content/sites/common.js`
-- **网站特定功能**: 放在 `content/sites/{模块名}/index.js`，只有匹配的网站才会加载
-- **模块文件夹**: 每个网站的功能放在独立的文件夹中，便于组织和管理多个文件
+- `WXT`
+- `Vue 3`
+- `Element Plus`
+- `TypeScript`
 
-## 安装步骤
+## 开发命令
 
-1. 打开 Chrome 浏览器，访问 `chrome://extensions/`
-2. 开启右上角的"开发者模式"
-3. 点击"加载已解压的扩展程序"
-4. 如果你是从仓库源码安装，选择当前仓库根目录；如果你是从 Release 下载，先解压，再选择解压后的扩展目录
-5. 完成！插件会显示在浏览器工具栏
-
-## 发布说明
-
-- 仓库版本号以 `package.json` 为准，`manifest.json` 会在发布流程中自动同步。
-- 当 `package.json` 的 `version` 发生变化并推送到 `master` 后，GitHub Action 会自动构建发布包并创建/更新对应版本的 GitHub Release。
-- Release 上的资源文件名为固定的 **`yishe-extensions.zip`**（与版本号无关），因此可使用 GitHub 的 latest 永久下载链接，例如：  
-  `https://github.com/1s-design/yishe-extensions/releases/latest/download/yishe-extensions.zip`  
-  （将 `1s-design/yishe-extensions` 换成你的仓库 `owner/repo` 即可。）
-- zip 内需先解压，解压后的文件夹名为 `yishe-extensions-v{version}`，再通过 Chrome/Edge「加载已解压的扩展程序」选择该文件夹。
-
-## 后端配置
-
-- 开源仓库默认不会内置真实生产 API、WebSocket 地址和第三方 Webhook。
-- 如需连接你的远程服务，请修改 `config/api.config.js` 中的 `PROD_CONFIG`。
-- 本地开发模式默认使用 `http://localhost:1520/api` 和 `http://localhost:1520/ws`。
-
-## 使用方法
-
-1. **打开任意网页**
-2. **查看悬浮机器人**: 页面右下角会显示一个机器人图标 🤖
-3. **点击机器人**: 点击机器人图标，会显示功能菜单
-4. **选择功能**: 菜单中会显示常用工具
-5. **使用功能**: 点击菜单项执行相应功能
-6. **拖拽机器人**: 可以拖拽机器人图标到任意位置
-
-## 菜单项格式
-
-```javascript
-{
-  icon: '🎯',           // 图标（可选）
-  label: '功能名称',     // 显示文本
-  action: () => {},     // 点击时执行的操作
-  disabled: false       // 是否禁用（可选）
-}
+```bash
+npm install
+npm run dev
 ```
 
-## 工具函数
+WXT 本地开发会接管页面入口与 manifest 生成。
 
-### DOM 工具 (dom-utils.js)
+## 构建命令
 
-- `createElement(tag, className, innerHTML)`: 创建元素
-- `addStyles(css)`: 添加样式
-- `waitForElement(selector, timeout)`: 等待元素出现
-- `debounce(func, wait)`: 防抖函数
-- `throttle(func, limit)`: 节流函数
-- `showNotification(message, type)`: 显示通知
+```bash
+npm run build
+```
 
-### 网站检测 (site-detector.js)
+构建结果位于：
 
-- `detectSite()`: 检测当前网站
-- `getCurrentSiteInfo()`: 获取当前网站信息
+```text
+.output/chrome-mv3/
+```
 
-## 代码组织原则
+把这个目录作为“已解压扩展程序”加载即可。
 
-1. **模块化**: 每个网站的功能应该独立成模块
-2. **文件夹组织**: 每个网站的功能放在独立的文件夹中
-3. **通用功能**: 通用功能放在 `common.js` 中
-4. **错误处理**: 添加适当的错误处理逻辑
-5. **日志输出**: 使用 `console.log` 方便调试
-6. **代码注释**: 添加清晰的中文注释
+## 发布目录
 
-## 常见问题
+```bash
+npm run build:release
+```
 
-**Q: 机器人图标不显示？**  
-A: 检查浏览器控制台是否有错误，确保页面已完全加载。某些特殊页面（如 chrome:// 页面）可能不支持。
+执行后会生成：
 
-**Q: 功能菜单不显示？**  
-A: 检查浏览器控制台是否有错误，确保网站配置正确，模块文件存在。
+```text
+dist/yishe-extensions-v{version}/
+```
 
-**Q: 如何禁用某个网站的功能？**  
-A: 在 `config/sites.json` 中将对应网站的 `enabled` 设置为 `false`。
+## 当前状态
 
-**Q: 如何修改机器人位置？**  
-A: 编辑 `content/styles/robot.css` 中的 `.core-robot-container` 样式，或者直接拖拽机器人图标。
+- `popup / login / control` 已全部迁入 Vue 页面
+- `background` 已迁为 WXT `background` entrypoint
+- `content` 已迁为 WXT `content-script` entrypoint
+- 原有 `public/background`、`public/content`、`public/utils`、`public/config` 已移除
+- 仓库已不再保留旧版运行时目录，只维护 WXT 新结构
+- 最终扩展包只包含 WXT 构建产物与静态资源
 
-**Q: 如何添加新功能？**  
-A: 在对应的网站模块文件夹中修改 `index.js` 文件，添加菜单项和功能函数。
+## 注意事项
 
-**Q: 为什么网站功能要放在文件夹中？**  
-A: 便于组织和管理多个文件，当一个网站的功能比较复杂时，可以在文件夹中创建多个文件。
-
-## 开发建议
-
-1. **模块化**: 每个网站的功能应该独立成模块
-2. **文件夹组织**: 使用文件夹组织网站功能，便于管理
-3. **可复用**: 通用功能放在 `common.js` 中
-4. **错误处理**: 添加适当的错误处理逻辑
-5. **日志输出**: 使用 `console.log` 方便调试
-6. **代码注释**: 添加清晰的中文注释
-
-## 下一步
-
-- [ ] 添加更多网站功能模块
-- [ ] 实现数据存储和导出功能
-- [ ] 添加设置页面
-- [ ] 支持自定义机器人样式
-- [ ] 添加功能快捷键
-- [ ] 实现数据爬取功能
-
-## 学习资源
-
-- [Chrome 扩展开发文档](https://developer.chrome.com/docs/extensions/)
-- [Manifest V3 指南](https://developer.chrome.com/docs/extensions/mv3/intro/)
-- [Content Scripts 文档](https://developer.chrome.com/docs/extensions/mv3/content_scripts/)
-
-祝开发愉快！🎉
+- 扩展版本号以 `package.json` 为准，WXT 会据此生成 manifest。
+- `src/entrypoints/background.ts` 与 `src/entrypoints/content.ts` 是扩展运行时入口。
+- 如果继续迭代后台或 content 能力，应直接修改 `src/background` 与 `src/content`。
