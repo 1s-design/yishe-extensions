@@ -100,11 +100,12 @@ async function handleLogout() {
 
             <div class="popup-actions">
               <el-button
+                size="small"
                 type="primary"
                 class="popup-action"
                 @click="handleOpenLoginTab"
               >
-                前往登录页
+                去登录
               </el-button>
             </div>
           </div>
@@ -150,13 +151,15 @@ async function handleLogout() {
 
             <div class="popup-actions">
               <el-button
+                size="small"
                 type="primary"
                 class="popup-action"
                 @click="handleOpenControlTab"
               >
-                进入整页
+                控制台
               </el-button>
               <el-button
+                size="small"
                 plain
                 type="danger"
                 class="popup-action"
@@ -173,43 +176,66 @@ async function handleLogout() {
   </div>
 </template>
 
+<style>
+html,
+body,
+#app {
+  width: 288px;
+  min-width: 288px;
+  min-height: 0;
+  height: auto;
+}
+
+body {
+  overflow-x: hidden;
+}
+</style>
+
 <style scoped>
 .popup-page {
-  width: 320px;
-  min-height: 100vh;
-  padding: 6px;
+  width: 288px;
+  min-height: auto;
+  padding: 4px;
+}
+
+.popup-page::before {
+  display: none;
 }
 
 .popup-card {
   display: flex;
-  min-height: 238px;
+  min-height: 196px;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  --ep-cover-control-height: 30px;
+  --ep-cover-control-padding-x: 10px;
+  --ep-cover-font-size-sm: 10px;
+  --ep-cover-font-size-xs: 9px;
 }
 
 .popup-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .popup-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .popup-brand .brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
 }
 
 .popup-brand strong {
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: -0.01em;
 }
 
@@ -217,7 +243,7 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  min-height: 34px;
+  min-height: 28px;
 }
 
 .popup-body {
@@ -226,15 +252,15 @@ async function handleLogout() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .popup-content {
   display: flex;
-  width: min(100%, 224px);
+  width: 100%;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
 }
 
@@ -243,19 +269,20 @@ async function handleLogout() {
   width: 100%;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
 }
 
 .popup-state span {
   color: #7a8ca1;
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 .popup-state strong {
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: -0.02em;
 }
 
@@ -263,7 +290,7 @@ async function handleLogout() {
   display: flex;
   width: 100%;
   flex-direction: row;
-  gap: 8px;
+  gap: 6px;
 }
 
 .popup-action {
@@ -275,26 +302,26 @@ async function handleLogout() {
   display: flex;
   width: 100%;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 36px;
-  padding: 0 10px;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 10px;
+  border-radius: 9px;
   background: #f7f9fc;
 }
 
 .status-row-main {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 600;
   color: #1f2937;
 }
@@ -302,9 +329,28 @@ async function handleLogout() {
 .status-error {
   padding: 0 2px;
   color: #94a3b8;
-  font-size: 10px;
-  line-height: 1.6;
+  font-size: 9px;
+  line-height: 1.5;
   word-break: break-word;
   text-align: center;
+}
+
+.popup-card :deep(.el-button) {
+  margin-left: 0;
+}
+
+.popup-card :deep(.el-button .el-icon) {
+  font-size: 12px;
+}
+
+.popup-card :deep(.el-button [class*="el-icon"] + span) {
+  margin-left: 4px;
+}
+
+.popup-card :deep(.el-tag) {
+  height: 20px;
+  padding: 0 8px;
+  line-height: 18px;
+  font-size: 9px;
 }
 </style>
