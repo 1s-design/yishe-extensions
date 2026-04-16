@@ -686,7 +686,7 @@ async function saveWebsiteToServer(websiteData, tab) {
 }
 
 /**
- * 保存文字信息到服务端（句子管理）
+ * 保存文字信息到服务端（文案管理）
  * @param {Object} textData - 文字数据
  * @param {string} textData.content - 文字内容（必需）
  * @param {string} [textData.description] - 文字描述
@@ -733,7 +733,7 @@ async function saveTextToServer(textData, tab) {
 
     log('[SaveText] 文字保存成功:', responseData);
     showLoading(tabId, 'hide');
-    showToast(tabId, 'success', '文字已保存到 YiShe 句子管理');
+    showToast(tabId, 'success', '文字已保存到 YiShe 文案管理');
 
     return responseData;
   } catch (error) {
