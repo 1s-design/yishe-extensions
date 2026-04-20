@@ -465,10 +465,10 @@ function injectTabUiFallback(tabId, payload) {
             }
 
             .yishe-fallback-loading-spinner {
-              width: 24px;
-              height: 24px;
+              width: 22px;
+              height: 22px;
               border-radius: 50%;
-              border: 3px solid rgba(255, 255, 255, 0.18);
+              border: 2px solid rgba(148, 163, 184, 0.22);
               border-top-color: #60a5fa;
               animation: yishe-fallback-spin 0.8s linear infinite;
               flex-shrink: 0;

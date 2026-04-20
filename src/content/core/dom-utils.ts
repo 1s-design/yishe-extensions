@@ -617,8 +617,8 @@ window.CoreDOMUtils = {
       }
 
       .core-loading-spinner {
-        width: 48px;
-        height: 48px;
+        width: 44px;
+        height: 44px;
         position: relative;
         display: flex;
         align-items: center;
@@ -628,22 +628,21 @@ window.CoreDOMUtils = {
       .core-loading-spinner::before {
         content: '';
         position: absolute;
-        width: 48px;
-        height: 48px;
-        border: 4px solid rgba(59, 130, 246, 0.15);
+        width: 44px;
+        height: 44px;
+        border: 2px solid rgba(148, 163, 184, 0.22);
         border-radius: 50%;
       }
 
       .core-loading-spinner::after {
         content: '';
         position: absolute;
-        width: 48px;
-        height: 48px;
-        border: 4px solid transparent;
-        border-top-color: #3b82f6;
-        border-right-color: #3b82f6;
+        width: 44px;
+        height: 44px;
+        border: 2px solid transparent;
+        border-top-color: #60a5fa;
         border-radius: 50%;
-        animation: core-loading-spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        animation: core-loading-spin 0.8s linear infinite;
       }
 
       .core-loading-message {
