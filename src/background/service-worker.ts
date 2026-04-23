@@ -2710,13 +2710,22 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
       showLoading(tabId, 'show', loadingMessage);
     }
 
+    const imagePayload = await fetchImagePayloadForUpload(imageUrl);
+
     // 调用本地 yishe-client 提供的接口
     const payload = {
       url: imageUrl,
       name: '',          // 可以以后改成从图片 alt / 描述推断
       description: '',   // 暂时留空，由服务端或后续编辑补充
       keywords: '',      // 暂时留空
-      target
+      target,
+      imageData: imagePayload.imageData,
+      fileName: imagePayload.fileName,
+      contentType: imagePayload.contentType,
+      suffix: imagePayload.suffix,
+      width: imagePayload.width,
+      height: imagePayload.height,
+      fileSize: imagePayload.fileSize,
     };
 
     const clientBaseUrl = await getEffectiveClientBaseUrl();
@@ -2778,6 +2787,102 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
     }
     throw error instanceof Error ? error : new Error(errorMessage);
   }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error || new Error('读取图片数据失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function resolveImageSizeFromBlob(blob) {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const size = {
+      width: bitmap.width || undefined,
+      height: bitmap.height || undefined,
+    };
+    bitmap.close();
+    return size;
+  } catch (error) {
+    log('[Upload] 读取图片尺寸失败:', serializeError(error));
+    return {
+      width: undefined,
+      height: undefined,
+    };
+  }
+}
+
+function sanitizeUploadFileExtension(extension) {
+  const normalized = String(extension || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!normalized) {
+    return 'jpg';
+  }
+  if (normalized === 'jpeg') {
+    return 'jpg';
+  }
+  return normalized;
+}
+
+function inferImageExtension(imageUrl, contentType) {
+  const urlMatch = String(imageUrl || '').match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
+  if (urlMatch) {
+    return sanitizeUploadFileExtension(urlMatch[1]);
+  }
+
+  const typeMatch = String(contentType || '').match(/^image\/([a-zA-Z0-9.+-]+)/i);
+  if (typeMatch) {
+    const rawType = typeMatch[1].toLowerCase().split('+')[0];
+    return sanitizeUploadFileExtension(rawType);
+  }
+
+  return 'jpg';
+}
+
+async function fetchImagePayloadForUpload(imageUrl) {
+  const response = await fetch(imageUrl, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      Accept: 'image/*',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`图片抓取失败（HTTP ${response.status}）`);
+  }
+
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.startsWith('image/')) {
+    throw new Error('当前链接返回的不是图片内容');
+  }
+
+  const blob = await response.blob();
+  const fileSize = Number(blob.size || 0);
+  if (fileSize > 50 * 1024 * 1024) {
+    throw new Error('图片文件过大，请选择小于50MB的图片');
+  }
+
+  const imageData = await blobToDataUrl(blob);
+  if (!imageData) {
+    throw new Error('图片转码失败');
+  }
+
+  const { width, height } = await resolveImageSizeFromBlob(blob);
+  const suffix = inferImageExtension(imageUrl, contentType);
+
+  return {
+    imageData,
+    contentType,
+    suffix,
+    width,
+    height,
+    fileSize,
+    fileName: `image_${Date.now()}.${suffix}`,
+  };
 }
 
 /**
