@@ -259,6 +259,7 @@ async function sendFeishuNotification(lines) {
 
 // 正在上传的图片集合，用于防止重复提交
 const uploadingImages = new Set();
+const uploadingFiles = new Set();
 
 function buildImageUploadKey(imageUrl, target) {
   const normalizedUrl = String(imageUrl || '').trim();
@@ -289,6 +290,22 @@ function markImageUploading(imageUrl, target) {
  */
 function markImageUploadComplete(imageUrl, target) {
   uploadingImages.delete(buildImageUploadKey(imageUrl, target));
+}
+
+function normalizeUploadUrl(value) {
+  return String(value || '').trim();
+}
+
+function isFileUploading(fileUrl) {
+  return uploadingFiles.has(normalizeUploadUrl(fileUrl));
+}
+
+function markFileUploading(fileUrl) {
+  uploadingFiles.add(normalizeUploadUrl(fileUrl));
+}
+
+function markFileUploadComplete(fileUrl) {
+  uploadingFiles.delete(normalizeUploadUrl(fileUrl));
 }
 
 // =============================================================
@@ -2370,6 +2387,14 @@ function initContextMenus() {
       contexts: ['all']
     });
 
+    // 1-6）保存当前预览文件到文件资源
+    chrome.contextMenus.create({
+      id: 'save-current-file-resource',
+      parentId: 'yishe-group-collect',
+      title: '保存当前文件到文件资源',
+      contexts: ['all']
+    });
+
     // --- 分组 2: Temu 助手 ---
     chrome.contextMenus.create({
       id: 'yishe-group-temu',
@@ -2842,6 +2867,246 @@ function inferImageExtension(imageUrl, contentType) {
   return 'jpg';
 }
 
+function sanitizeFileName(value, fallback = 'file') {
+  let decodedValue = String(value || '').trim();
+  try {
+    decodedValue = decodeURIComponent(decodedValue);
+  } catch (error) {
+    // 保留原始值
+  }
+
+  const normalized = decodedValue
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized || fallback;
+}
+
+function sanitizeFileExtension(extension) {
+  return String(extension || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '') || 'bin';
+}
+
+function inferFileExtension(fileUrl, contentType) {
+  const urlMatch = String(fileUrl || '').match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
+  if (urlMatch) {
+    return sanitizeFileExtension(urlMatch[1]);
+  }
+
+  const normalizedContentType = String(contentType || '').toLowerCase().split(';')[0].trim();
+  const contentTypeMap = {
+    'application/pdf': 'pdf',
+    'application/zip': 'zip',
+    'application/x-zip-compressed': 'zip',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-powerpoint': 'ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+  };
+
+  return contentTypeMap[normalizedContentType] || 'bin';
+}
+
+function getFileNameFromContentDisposition(value) {
+  const header = String(value || '');
+  const encodedMatch = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch) {
+    return sanitizeFileName(encodedMatch[1]);
+  }
+
+  const quotedMatch = header.match(/filename="([^"]+)"/i);
+  if (quotedMatch) {
+    return sanitizeFileName(quotedMatch[1]);
+  }
+
+  const plainMatch = header.match(/filename=([^;]+)/i);
+  if (plainMatch) {
+    return sanitizeFileName(plainMatch[1]);
+  }
+
+  return '';
+}
+
+function inferFileName(fileUrl, contentType, contentDisposition) {
+  const fromDisposition = getFileNameFromContentDisposition(contentDisposition);
+  if (fromDisposition) {
+    return fromDisposition;
+  }
+
+  try {
+    const parsedUrl = new URL(fileUrl);
+    const pathnameName = parsedUrl.pathname.split('/').filter(Boolean).pop();
+    if (pathnameName) {
+      const decodedName = sanitizeFileName(pathnameName);
+      if (decodedName.includes('.')) {
+        return decodedName;
+      }
+      return `${decodedName}.${inferFileExtension(fileUrl, contentType)}`;
+    }
+  } catch (error) {
+    // 忽略非法 URL，使用兜底文件名
+  }
+
+  return `file_${Date.now()}.${inferFileExtension(fileUrl, contentType)}`;
+}
+
+function getCandidateFileUrl(info, tab) {
+  const candidates = [
+    info?.linkUrl,
+    info?.srcUrl,
+    info?.pageUrl,
+    tab?.url,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeUploadUrl(candidate);
+    if (/^(https?|file):\/\//i.test(normalized)) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function isLocalFileUrl(fileUrl) {
+  return /^file:\/\//i.test(String(fileUrl || '').trim());
+}
+
+function fileUrlToLocalPath(fileUrl) {
+  const parsedUrl = new URL(fileUrl);
+  let pathname = parsedUrl.pathname || '';
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch (error) {
+    // 保留原始路径
+  }
+
+  if (/^\/[a-zA-Z]:\//.test(pathname)) {
+    pathname = pathname.slice(1);
+  }
+
+  pathname = pathname.replace(/\//g, '\\');
+  if (parsedUrl.hostname) {
+    return `\\\\${parsedUrl.hostname}${pathname}`;
+  }
+
+  return pathname;
+}
+
+async function fetchFilePayloadForUpload(fileUrl) {
+  const response = await fetch(fileUrl, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/pdf,application/octet-stream,*/*',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`文件抓取失败（HTTP ${response.status}）`);
+  }
+
+  const contentType = String(response.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim() || 'application/octet-stream';
+  const blob = await response.blob();
+  const fileSize = Number(blob.size || 0);
+  if (fileSize <= 0) {
+    throw new Error('文件内容为空，无法保存');
+  }
+  if (fileSize > 100 * 1024 * 1024) {
+    throw new Error('文件过大，请选择小于100MB的文件');
+  }
+
+  const suffix = inferFileExtension(fileUrl, contentType);
+  const fileName = inferFileName(fileUrl, contentType, response.headers.get('content-disposition'));
+  const fileData = await blobToDataUrl(blob);
+  if (!fileData) {
+    throw new Error('文件转码失败');
+  }
+
+  return {
+    fileData,
+    fileName,
+    contentType,
+    suffix,
+    fileSize,
+  };
+}
+
+async function performFileResourceUpload(tabId, fileUrl) {
+  log('[FileUpload] 开始保存文件资源:', { tabId, fileUrl });
+
+  try {
+    markFileUploading(fileUrl);
+    showLoading(tabId, 'show', '正在保存文件到 YiShe 文件资源...');
+
+    const isLocalFile = isLocalFileUrl(fileUrl);
+    const filePayload = isLocalFile
+      ? {
+          localFilePath: fileUrlToLocalPath(fileUrl),
+          fileName: inferFileName(fileUrl, 'application/octet-stream', ''),
+          contentType: 'application/octet-stream',
+          suffix: inferFileExtension(fileUrl, 'application/octet-stream'),
+          fileSize: undefined,
+        }
+      : await fetchFilePayloadForUpload(fileUrl);
+    const clientBaseUrl = await getEffectiveClientBaseUrl();
+    const clientUploadPath = backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.FILE_UPLOAD
+      || "/api/file-upload";
+    const clientUploadUrl = `${clientBaseUrl}${clientUploadPath}`;
+
+    const response = await fetch(clientUploadUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url: fileUrl,
+        name: filePayload.fileName,
+        description: '',
+        fileData: filePayload.fileData,
+        localFilePath: filePayload.localFilePath,
+        fileName: filePayload.fileName,
+        contentType: filePayload.contentType,
+        suffix: filePayload.suffix,
+        fileSize: filePayload.fileSize,
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      log('[FileUpload] 保存文件资源失败，HTTP 状态异常:', response.status, text);
+      throw new Error(text || '保存文件资源失败（服务端返回错误）');
+    }
+
+    const result = await response.json().catch(() => null);
+    if (!result?.status && result?.code !== 0) {
+      throw new Error(result?.message || '保存文件资源失败');
+    }
+
+    markFileUploadComplete(fileUrl);
+    return { success: true, result };
+  } catch (error) {
+    log('[FileUpload] 保存文件资源异常:', serializeError(error));
+    markFileUploadComplete(fileUrl);
+    const errorMessage = serializeError(error);
+    if (
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('fetch failed') ||
+      errorMessage.includes('ECONNREFUSED') ||
+      errorMessage.includes('ERR_CONNECTION_REFUSED')
+    ) {
+      throw new Error('无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动');
+    }
+    throw error instanceof Error ? error : new Error(errorMessage);
+  }
+}
+
 async function fetchImagePayloadForUpload(imageUrl) {
   const response = await fetch(imageUrl, {
     method: 'GET',
@@ -2992,7 +3257,35 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 4）上传图片到 YiShe 图片素材 / 爬图素材
+    // 4）保存当前预览文件到 YiShe 文件资源
+    if (info.menuItemId === 'save-current-file-resource') {
+      const tabId = getTabId(tab);
+      const fileUrl = getCandidateFileUrl(info, tab);
+
+      if (!fileUrl) {
+        showToast(tabId, 'warning', '无法识别当前文件地址，暂时无法保存');
+        return;
+      }
+
+      if (isFileUploading(fileUrl)) {
+        showToast(tabId, 'info', '当前文件正在保存到 YiShe 文件资源，请稍候...');
+        return;
+      }
+
+      try {
+        await performFileResourceUpload(tabId, fileUrl);
+        showLoading(tabId, 'hide');
+        showToast(tabId, 'success', '文件已保存到 YiShe 文件资源');
+      } catch (error) {
+        log('[ContextMenu] 保存文件资源失败:', serializeError(error));
+        showLoading(tabId, 'hide');
+        showToast(tabId, 'error', error.message || '保存文件资源失败，请稍后重试');
+      }
+
+      return;
+    }
+
+    // 5）上传图片到 YiShe 图片素材 / 爬图素材
     if (
       info.menuItemId === 'upload-image-to-sticker' ||
       info.menuItemId === 'upload-image-to-crawler-material'
@@ -3043,7 +3336,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 5）清空 Temu 缓存
+    // 6）清空 Temu 缓存
     if (info.menuItemId === 'clear-temu-cache') {
       const tabId = getTabId(tab);
       const url = tab?.url || '';

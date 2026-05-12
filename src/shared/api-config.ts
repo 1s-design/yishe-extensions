@@ -50,5 +50,6 @@ export const API_ENDPOINTS = {
 
 export const CLIENT_ENDPOINTS = {
   MATERIAL_UPLOAD: "/api/material-upload",
+  FILE_UPLOAD: "/api/file-upload",
   AUTH_SESSION: "/api/auth/session",
 } as const;
