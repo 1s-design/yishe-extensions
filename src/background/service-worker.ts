@@ -49,7 +49,7 @@ backgroundGlobal.MessageHandlers = {
 
 // 简单的日志函数（在 log 函数定义之前使用）
 function simpleLog(...args) {
-  console.log('[Core][WS]', ...args);
+  console.log("[Core][WS]", ...args);
 }
 
 // =============================================================
@@ -61,42 +61,55 @@ const scriptsLoaded = {
   error: null,
 };
 
-const OPEN_SOURCE_REMOTE_WS_ENDPOINT = 'https://api.example.invalid/ws';
+const OPEN_SOURCE_REMOTE_WS_ENDPOINT = "https://api.example.invalid/ws";
 
 // 从配置文件获取默认地址（如果配置文件加载失败，使用开源安全 fallback）
-const DEFAULT_PROD_WS_ENDPOINT = backgroundGlobal.ApiConfig?.PROD_CONFIG?.WS_BASE_URL || OPEN_SOURCE_REMOTE_WS_ENDPOINT;
-const DEFAULT_DEV_WS_ENDPOINT = backgroundGlobal.ApiConfig?.DEV_CONFIG?.WS_BASE_URL || "http://localhost:1520/ws";
+const DEFAULT_PROD_WS_ENDPOINT =
+  backgroundGlobal.ApiConfig?.PROD_CONFIG?.WS_BASE_URL ||
+  OPEN_SOURCE_REMOTE_WS_ENDPOINT;
+const DEFAULT_DEV_WS_ENDPOINT =
+  backgroundGlobal.ApiConfig?.DEV_CONFIG?.WS_BASE_URL ||
+  "http://localhost:1520/ws";
 const DEFAULT_WS_ENDPOINT = DEFAULT_PROD_WS_ENDPOINT;
 // 本地 Electron 客户端固定地址（不包含路径，路径由 Socket.IO 配置指定）
-const DEFAULT_PROD_CLIENT_ENDPOINT = backgroundGlobal.ApiConfig?.PROD_CONFIG?.CLIENT_BASE_URL || "http://localhost:1519";
-const DEFAULT_DEV_CLIENT_ENDPOINT = backgroundGlobal.ApiConfig?.DEV_CONFIG?.CLIENT_BASE_URL || DEFAULT_PROD_CLIENT_ENDPOINT;
-const STORAGE_ENDPOINT_KEY = 'wsEndpoint';
-const STORAGE_ENDPOINT_CUSTOM_KEY = 'wsEndpointCustom';
-const STORAGE_DEV_MODE_KEY = 'devMode';
-const STORAGE_DEV_WS_BASE_URL_KEY = 'devWsBaseUrl';
-const STORAGE_WS_BASE_URL_KEY = 'wsBaseUrl';
+const DEFAULT_PROD_CLIENT_ENDPOINT =
+  backgroundGlobal.ApiConfig?.PROD_CONFIG?.CLIENT_BASE_URL ||
+  "http://localhost:1519";
+const DEFAULT_DEV_CLIENT_ENDPOINT =
+  backgroundGlobal.ApiConfig?.DEV_CONFIG?.CLIENT_BASE_URL ||
+  DEFAULT_PROD_CLIENT_ENDPOINT;
+const STORAGE_ENDPOINT_KEY = "wsEndpoint";
+const STORAGE_ENDPOINT_CUSTOM_KEY = "wsEndpointCustom";
+const STORAGE_DEV_MODE_KEY = "devMode";
+const STORAGE_DEV_WS_BASE_URL_KEY = "devWsBaseUrl";
+const STORAGE_WS_BASE_URL_KEY = "wsBaseUrl";
 const HEARTBEAT_INTERVAL = 15000;
 const HEARTBEAT_TIMEOUT = 10000;
 
 // 从配置文件获取 URL（如果配置文件加载失败，保持为空，避免误发到真实第三方服务）
-const FEISHU_WEBHOOK_URL = backgroundGlobal.ApiConfig?.PROD_CONFIG?.FEISHU_WEBHOOK_URL || "";
+const FEISHU_WEBHOOK_URL =
+  backgroundGlobal.ApiConfig?.PROD_CONFIG?.FEISHU_WEBHOOK_URL || "";
 const textEncoder = new TextEncoder();
 
-const CLIENT_SOURCE = 'yishe-extension';
-const CLIENT_INFO_QUERY_KEY = 'clientInfo';
-const CLIENT_SOURCE_QUERY_KEY = 'clientSource';
-const CLIENT_VERSION_QUERY_KEY = 'extensionVersion';
-const CLIENT_ID_QUERY_KEY = 'clientId';
-const LOCATION_CACHE_KEY = 'wsLocationCache';
+const CLIENT_SOURCE = "yishe-extension";
+const CLIENT_INFO_QUERY_KEY = "clientInfo";
+const CLIENT_SOURCE_QUERY_KEY = "clientSource";
+const CLIENT_VERSION_QUERY_KEY = "extensionVersion";
+const CLIENT_ID_QUERY_KEY = "clientId";
+const LOCATION_CACHE_KEY = "wsLocationCache";
 const LOCATION_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-const LOCATION_ENDPOINT = backgroundGlobal.ApiConfig?.PROD_CONFIG?.LOCATION_ENDPOINT || "https://ipapi.co/json/";
-const AUTH_TOKEN_KEY = 'accessToken';
-const AUTH_USER_INFO_KEY = 'userInfo';
-const CLIENT_AUTH_SESSION_PATH = backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.AUTH_SESSION || "/api/auth/session";
-const EXTENSION_LOGIN_REQUIRED_MESSAGE = '请先登录扩展账号';
-const LOCAL_CLIENT_LOGIN_REQUIRED_MESSAGE = '请先登录并启动本地客户端';
-const LOCAL_CLIENT_ACCOUNT_REQUIRED_MESSAGE = '本地客户端未返回当前账号';
-const LOCAL_CLIENT_ACCOUNT_MISMATCH_MESSAGE = '本地客户端账号与扩展账号不一致';
+const LOCATION_ENDPOINT =
+  backgroundGlobal.ApiConfig?.PROD_CONFIG?.LOCATION_ENDPOINT ||
+  "https://ipapi.co/json/";
+const AUTH_TOKEN_KEY = "accessToken";
+const AUTH_USER_INFO_KEY = "userInfo";
+const CLIENT_AUTH_SESSION_PATH =
+  backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.AUTH_SESSION ||
+  "/api/auth/session";
+const EXTENSION_LOGIN_REQUIRED_MESSAGE = "请先登录扩展账号";
+const LOCAL_CLIENT_LOGIN_REQUIRED_MESSAGE = "请先登录并启动本地客户端";
+const LOCAL_CLIENT_ACCOUNT_REQUIRED_MESSAGE = "本地客户端未返回当前账号";
+const LOCAL_CLIENT_ACCOUNT_MISMATCH_MESSAGE = "本地客户端账号与扩展账号不一致";
 
 // 客户端元信息（浏览器、系统、扩展版本等）
 let clientMetadata = null;
@@ -121,7 +134,7 @@ let clientWsEndpoint = DEFAULT_PROD_CLIENT_ENDPOINT;
 
 // 对「服务端 WebSocket」的最新状态快照
 const wsState = {
-  status: 'disconnected',
+  status: "disconnected",
   endpoint: wsEndpoint,
   connectedAt: null,
   lastPingAt: null,
@@ -135,7 +148,7 @@ const wsState = {
 
 // 对「本地客户端 WebSocket」的最新状态快照
 const clientWsState = {
-  status: 'disconnected',
+  status: "disconnected",
   endpoint: clientWsEndpoint,
   connectedAt: null,
   lastPingAt: null,
@@ -148,7 +161,7 @@ const clientWsState = {
 
 // 统一日志输出，方便过滤
 function log(...args) {
-  console.log('[Core][WS]', ...args);
+  console.log("[Core][WS]", ...args);
 }
 
 function getApiUtils() {
@@ -175,8 +188,8 @@ async function getEffectiveClientBaseUrl() {
 // =============================================================
 
 function serializeError(error) {
-  if (!error) return 'Unknown error';
-  if (typeof error === 'string') return error;
+  if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
   if (error.message) return error.message;
   try {
     return JSON.stringify(error);
@@ -186,12 +199,12 @@ function serializeError(error) {
 }
 
 function normalizeServiceUrl(value) {
-  return typeof value === 'string' ? value.trim() : '';
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function isOpenSourcePlaceholderUrl(value) {
   const normalized = normalizeServiceUrl(value).toLowerCase();
-  return !normalized || normalized.includes('example.invalid');
+  return !normalized || normalized.includes("example.invalid");
 }
 
 function getWebsocketConfigError(endpoint) {
@@ -202,7 +215,7 @@ function getWebsocketConfigError(endpoint) {
   if (isOpenSourcePlaceholderUrl(normalized)) {
     return "当前远程 WebSocket 仍是开源默认占位地址，请先替换为真实服务地址";
   }
-  return '';
+  return "";
 }
 
 // guessExtension 和 uploadMaterialToServer 已迁移到 handlers/base.js
@@ -211,27 +224,30 @@ function getWebsocketConfigError(endpoint) {
 function guessExtension(url, contentType) {
   // 如果有 handlers 可用，使用 handlers 中的实现
   if (backgroundGlobal.MessageHandlers?.Base?.guessExtension) {
-    return backgroundGlobal.MessageHandlers.Base.guessExtension(url, contentType);
+    return backgroundGlobal.MessageHandlers.Base.guessExtension(
+      url,
+      contentType,
+    );
   }
   // Fallback 实现
   const fromUrl = (() => {
     try {
       const pathname = new URL(url).pathname;
       const match = pathname.match(/\.(avif|webp|png|jpg|jpeg|gif|svg)$/i);
-      return match ? `.${match[1].toLowerCase()}` : '';
+      return match ? `.${match[1].toLowerCase()}` : "";
     } catch (_) {
-      return '';
+      return "";
     }
   })();
   if (fromUrl) return fromUrl;
-  if (!contentType) return '.jpg';
-  if (contentType.includes('image/jpeg')) return '.jpg';
-  if (contentType.includes('image/png')) return '.png';
-  if (contentType.includes('image/webp')) return '.webp';
-  if (contentType.includes('image/gif')) return '.gif';
-  if (contentType.includes('image/svg')) return '.svg';
-  if (contentType.includes('image/avif')) return '.avif';
-  return '.jpg';
+  if (!contentType) return ".jpg";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/gif")) return ".gif";
+  if (contentType.includes("image/svg")) return ".svg";
+  if (contentType.includes("image/avif")) return ".avif";
+  return ".jpg";
 }
 
 async function sendFeishuNotification(lines) {
@@ -239,17 +255,17 @@ async function sendFeishuNotification(lines) {
     return;
   }
   const payload = {
-    msg_type: 'text',
+    msg_type: "text",
     content: {
-      text: lines.join('\n'),
+      text: lines.join("\n"),
     },
   };
   await fetch(FEISHU_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }).catch((error) => {
-    log('发送飞书通知失败:', serializeError(error));
+    log("发送飞书通知失败:", serializeError(error));
   });
 }
 
@@ -262,8 +278,8 @@ const uploadingImages = new Set();
 const uploadingFiles = new Set();
 
 function buildImageUploadKey(imageUrl, target) {
-  const normalizedUrl = String(imageUrl || '').trim();
-  const normalizedTarget = String(target || 'sticker').trim();
+  const normalizedUrl = String(imageUrl || "").trim();
+  const normalizedTarget = String(target || "sticker").trim();
   return `${normalizedTarget}::${normalizedUrl}`;
 }
 
@@ -293,7 +309,7 @@ function markImageUploadComplete(imageUrl, target) {
 }
 
 function normalizeUploadUrl(value) {
-  return String(value || '').trim();
+  return String(value || "").trim();
 }
 
 function isFileUploading(fileUrl) {
@@ -324,8 +340,8 @@ function clearTabBadge(tabId) {
   }
 
   try {
-    chrome.action.setBadgeText({ tabId, text: '' });
-    chrome.action.setTitle({ tabId, title: 'YiShe 工具集' });
+    chrome.action.setBadgeText({ tabId, text: "" });
+    chrome.action.setTitle({ tabId, title: "YiShe 工具集" });
   } catch (error) {
     // 静默忽略 badge 设置失败
   }
@@ -343,7 +359,7 @@ function setTabBadge(tabId, text, color, title, duration) {
   try {
     chrome.action.setBadgeBackgroundColor({ tabId, color });
     chrome.action.setBadgeText({ tabId, text });
-    chrome.action.setTitle({ tabId, title: title || 'YiShe 工具集' });
+    chrome.action.setTitle({ tabId, title: title || "YiShe 工具集" });
   } catch (error) {
     // 静默忽略 badge 设置失败
   }
@@ -357,8 +373,8 @@ function setTabBadge(tabId, text, color, title, duration) {
 }
 
 function syncBadgeWithLoading(tabId, action, message) {
-  if (action === 'show') {
-    setTabBadge(tabId, '...', '#2563eb', message || '处理中...');
+  if (action === "show") {
+    setTabBadge(tabId, "...", "#2563eb", message || "处理中...");
     return;
   }
 
@@ -367,10 +383,10 @@ function syncBadgeWithLoading(tabId, action, message) {
 
 function syncBadgeWithToast(tabId, level, message, duration) {
   const badgeMap = {
-    success: { text: 'OK', color: '#16a34a' },
-    error: { text: 'ERR', color: '#dc2626' },
-    warning: { text: '!', color: '#d97706' },
-    info: { text: '...', color: '#2563eb' }
+    success: { text: "OK", color: "#16a34a" },
+    error: { text: "ERR", color: "#dc2626" },
+    warning: { text: "!", color: "#d97706" },
+    info: { text: "...", color: "#2563eb" },
   };
 
   const badgeMeta = badgeMap[level] || badgeMap.info;
@@ -378,8 +394,8 @@ function syncBadgeWithToast(tabId, level, message, duration) {
     tabId,
     badgeMeta.text,
     badgeMeta.color,
-    message || 'YiShe 工具集',
-    typeof duration === 'number' ? duration : 3200
+    message || "YiShe 工具集",
+    typeof duration === "number" ? duration : 3200,
   );
 }
 
@@ -387,39 +403,40 @@ function injectTabUiFallback(tabId, payload) {
   if (tabId == null) return;
 
   try {
-    chrome.scripting.executeScript({
-      target: { tabId },
-      func: (uiPayload) => {
-        const doc = document;
-        const host = doc.body || doc.documentElement;
-        if (!host) return;
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        func: (uiPayload) => {
+          const doc = document;
+          const host = doc.body || doc.documentElement;
+          if (!host) return;
 
-        if (uiPayload.type === 'core:toast' && window.CoreToast?.show) {
-          window.CoreToast.show({
-            message: uiPayload.message || '',
-            type: uiPayload.level || 'info',
-            duration: uiPayload.duration
-          });
-          return;
-        }
-
-        if (uiPayload.type === 'core:loading' && window.CoreLoading) {
-          if (uiPayload.action === 'show') {
-            window.CoreLoading.show(uiPayload.message || '处理中...');
-          } else {
-            window.CoreLoading.hide();
+          if (uiPayload.type === "core:toast" && window.CoreToast?.show) {
+            window.CoreToast.show({
+              message: uiPayload.message || "",
+              type: uiPayload.level || "info",
+              duration: uiPayload.duration,
+            });
+            return;
           }
-          return;
-        }
 
-        const STYLE_ID = 'yishe-fallback-ui-style';
-        const TOAST_ROOT_ID = 'yishe-fallback-toast-root';
-        const LOADING_ROOT_ID = 'yishe-fallback-loading-root';
+          if (uiPayload.type === "core:loading" && window.CoreLoading) {
+            if (uiPayload.action === "show") {
+              window.CoreLoading.show(uiPayload.message || "处理中...");
+            } else {
+              window.CoreLoading.hide();
+            }
+            return;
+          }
 
-        if (!doc.getElementById(STYLE_ID)) {
-          const style = doc.createElement('style');
-          style.id = STYLE_ID;
-          style.textContent = `
+          const STYLE_ID = "yishe-fallback-ui-style";
+          const TOAST_ROOT_ID = "yishe-fallback-toast-root";
+          const LOADING_ROOT_ID = "yishe-fallback-loading-root";
+
+          if (!doc.getElementById(STYLE_ID)) {
+            const style = doc.createElement("style");
+            style.id = STYLE_ID;
+            style.textContent = `
             #${TOAST_ROOT_ID} {
               position: fixed;
               top: 16px;
@@ -500,69 +517,74 @@ function injectTabUiFallback(tabId, payload) {
               to { transform: rotate(360deg); }
             }
           `;
-          (doc.head || host).appendChild(style);
-        }
-
-        function ensureToastRoot() {
-          let root = doc.getElementById(TOAST_ROOT_ID);
-          if (!root) {
-            root = doc.createElement('div');
-            root.id = TOAST_ROOT_ID;
-            host.appendChild(root);
+            (doc.head || host).appendChild(style);
           }
-          return root;
-        }
 
-        function ensureLoadingRoot() {
-          let root = doc.getElementById(LOADING_ROOT_ID);
-          if (!root) {
-            root = doc.createElement('div');
-            root.id = LOADING_ROOT_ID;
-            root.innerHTML = `
+          function ensureToastRoot() {
+            let root = doc.getElementById(TOAST_ROOT_ID);
+            if (!root) {
+              root = doc.createElement("div");
+              root.id = TOAST_ROOT_ID;
+              host.appendChild(root);
+            }
+            return root;
+          }
+
+          function ensureLoadingRoot() {
+            let root = doc.getElementById(LOADING_ROOT_ID);
+            if (!root) {
+              root = doc.createElement("div");
+              root.id = LOADING_ROOT_ID;
+              root.innerHTML = `
               <div class="yishe-fallback-loading-card">
                 <div class="yishe-fallback-loading-spinner"></div>
                 <div class="yishe-fallback-loading-text">处理中...</div>
               </div>
             `;
-            host.appendChild(root);
-          }
-          return root;
-        }
-
-        if (uiPayload.type === 'core:loading') {
-          const root = ensureLoadingRoot();
-          const textEl = root.querySelector('.yishe-fallback-loading-text');
-          if (uiPayload.action === 'show') {
-            if (textEl) {
-              textEl.textContent = uiPayload.message || '处理中...';
+              host.appendChild(root);
             }
-            root.classList.add('is-visible');
-          } else {
-            root.classList.remove('is-visible');
+            return root;
           }
-          return;
-        }
 
-        if (uiPayload.type === 'core:toast' && uiPayload.message) {
-          const root = ensureToastRoot();
-          const toast = doc.createElement('div');
-          toast.className = `yishe-fallback-toast yishe-fallback-toast-${uiPayload.level || 'info'}`;
-          toast.textContent = uiPayload.message;
-          root.appendChild(toast);
-          const delay = typeof uiPayload.duration === 'number' ? uiPayload.duration : 3200;
-          setTimeout(() => {
-            if (toast.parentNode) {
-              toast.parentNode.removeChild(toast);
+          if (uiPayload.type === "core:loading") {
+            const root = ensureLoadingRoot();
+            const textEl = root.querySelector(".yishe-fallback-loading-text");
+            if (uiPayload.action === "show") {
+              if (textEl) {
+                textEl.textContent = uiPayload.message || "处理中...";
+              }
+              root.classList.add("is-visible");
+            } else {
+              root.classList.remove("is-visible");
             }
-          }, delay);
+            return;
+          }
+
+          if (uiPayload.type === "core:toast" && uiPayload.message) {
+            const root = ensureToastRoot();
+            const toast = doc.createElement("div");
+            toast.className = `yishe-fallback-toast yishe-fallback-toast-${uiPayload.level || "info"}`;
+            toast.textContent = uiPayload.message;
+            root.appendChild(toast);
+            const delay =
+              typeof uiPayload.duration === "number"
+                ? uiPayload.duration
+                : 3200;
+            setTimeout(() => {
+              if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+              }
+            }, delay);
+          }
+        },
+        args: [payload],
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          // 静默忽略 fallback 注入失败
         }
       },
-      args: [payload]
-    }, () => {
-      if (chrome.runtime.lastError) {
-        // 静默忽略 fallback 注入失败
-      }
-    });
+    );
   } catch (error) {
     // 静默忽略 fallback 注入失败
   }
@@ -584,14 +606,14 @@ function dispatchTabUiMessage(tabId, payload) {
  * @param {string} action - 'show' 或 'hide'
  * @param {string} [message] - Loading 时显示的消息
  */
-function showLoading(tabId, action = 'show', message = '处理中...') {
+function showLoading(tabId, action = "show", message = "处理中...") {
   if (tabId == null) return;
 
   syncBadgeWithLoading(tabId, action, message);
   dispatchTabUiMessage(tabId, {
-    type: 'core:loading',
+    type: "core:loading",
     action: action,
-    message: action === 'show' ? message : undefined
+    message: action === "show" ? message : undefined,
   });
 }
 
@@ -607,10 +629,10 @@ function showToast(tabId, level, message, duration) {
 
   syncBadgeWithToast(tabId, level, message, duration);
   dispatchTabUiMessage(tabId, {
-    type: 'core:toast',
+    type: "core:toast",
     level: level,
     message: message,
-    duration: duration
+    duration: duration,
   });
 }
 
@@ -630,17 +652,21 @@ function getTabId(tab) {
  * @param {string} defaultMessage - 默认错误消息
  * @returns {string} - 解析后的错误消息
  */
-function parseErrorMessage(responseData, statusCode, defaultMessage = '操作失败') {
+function parseErrorMessage(
+  responseData,
+  statusCode,
+  defaultMessage = "操作失败",
+) {
   if (responseData.message) {
     if (Array.isArray(responseData.message)) {
-      return responseData.message.join(', ');
-    } else if (typeof responseData.message === 'string') {
+      return responseData.message.join(", ");
+    } else if (typeof responseData.message === "string") {
       return responseData.message;
     }
   } else if (responseData.msg) {
     if (Array.isArray(responseData.msg)) {
-      return responseData.msg.join(', ');
-    } else if (typeof responseData.msg === 'string') {
+      return responseData.msg.join(", ");
+    } else if (typeof responseData.msg === "string") {
       return responseData.msg;
     }
   }
@@ -666,38 +692,40 @@ async function saveWebsiteToServer(websiteData, tab) {
     const userInfo = authState[AUTH_USER_INFO_KEY];
 
     if (!token || !userInfo) {
-      showLoading(tabId, 'hide');
-      showToast(tabId, 'error', '请先登录后再保存网站');
-      throw new Error('请先登录后再保存网站');
+      showLoading(tabId, "hide");
+      showToast(tabId, "error", "请先登录后再保存网站");
+      throw new Error("请先登录后再保存网站");
     }
 
-    const createPath = backgroundGlobal.ApiConfig?.API_ENDPOINTS?.COMMON_URL?.CREATE || "/common-url";
+    const createPath =
+      backgroundGlobal.ApiConfig?.API_ENDPOINTS?.COMMON_URL?.CREATE ||
+      "/common-url";
     const requestData = {
       url: websiteData.url,
       name: websiteData.name || new URL(websiteData.url).hostname,
-      description: websiteData.description || '',
-      icon: websiteData.icon || '',
-      category: websiteData.category || '收藏',
+      description: websiteData.description || "",
+      icon: websiteData.icon || "",
+      category: websiteData.category || "收藏",
       isActive: true,
       sort: 0,
     };
 
-    log('[SaveWebsite] 准备保存网站:', requestData);
+    log("[SaveWebsite] 准备保存网站:", requestData);
 
     const responseData = await apiRequestWithContext(createPath, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(requestData),
     });
 
-    log('[SaveWebsite] 网站保存成功:', responseData);
-    showLoading(tabId, 'hide');
-    showToast(tabId, 'success', '网站已保存到 YiShe');
+    log("[SaveWebsite] 网站保存成功:", responseData);
+    showLoading(tabId, "hide");
+    showToast(tabId, "success", "网站已保存到 YiShe");
 
     return responseData;
   } catch (error) {
-    log('[SaveWebsite] 保存网站异常:', serializeError(error));
-    showLoading(tabId, 'hide');
-    showToast(tabId, 'error', error.message || '保存网站失败，请稍后重试');
+    log("[SaveWebsite] 保存网站异常:", serializeError(error));
+    showLoading(tabId, "hide");
+    showToast(tabId, "error", error.message || "保存网站失败，请稍后重试");
     throw error;
   }
 }
@@ -719,54 +747,57 @@ async function saveTextToServer(textData, tab) {
     const userInfo = authState[AUTH_USER_INFO_KEY];
 
     if (!token || !userInfo) {
-      showLoading(tabId, 'hide');
-      showToast(tabId, 'error', '请先登录后再保存文字');
-      throw new Error('请先登录后再保存文字');
+      showLoading(tabId, "hide");
+      showToast(tabId, "error", "请先登录后再保存文字");
+      throw new Error("请先登录后再保存文字");
     }
 
-    const createPath = backgroundGlobal.ApiConfig?.API_ENDPOINTS?.SENTENCE?.CREATE || "/sentences";
+    const createPath =
+      backgroundGlobal.ApiConfig?.API_ENDPOINTS?.SENTENCE?.CREATE ||
+      "/sentences";
 
     const requestData = {
-      content: textData.content || '',
-      description: textData.description || '',
-      keywords: textData.keywords || '',
+      content: textData.content || "",
+      description: textData.description || "",
+      keywords: textData.keywords || "",
     };
 
     // 验证内容不能为空
     if (!requestData.content || requestData.content.trim().length === 0) {
-      throw new Error('文字内容不能为空');
+      throw new Error("文字内容不能为空");
     }
 
-    log('[SaveText] 准备保存文字:', {
-      content: requestData.content.substring(0, 50) + (requestData.content.length > 50 ? '...' : ''),
+    log("[SaveText] 准备保存文字:", {
+      content:
+        requestData.content.substring(0, 50) +
+        (requestData.content.length > 50 ? "..." : ""),
       description: requestData.description,
-      keywords: requestData.keywords
+      keywords: requestData.keywords,
     });
 
     const responseData = await apiRequestWithContext(createPath, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(requestData),
     });
 
-    log('[SaveText] 文字保存成功:', responseData);
-    showLoading(tabId, 'hide');
-    showToast(tabId, 'success', '文字已保存到 YiShe 文案管理');
+    log("[SaveText] 文字保存成功:", responseData);
+    showLoading(tabId, "hide");
+    showToast(tabId, "success", "文字已保存到 YiShe 文案管理");
 
     return responseData;
   } catch (error) {
-    log('[SaveText] 保存文字异常:', serializeError(error));
-    showLoading(tabId, 'hide');
-    showToast(tabId, 'error', error.message || '保存文字失败，请稍后重试');
+    log("[SaveText] 保存文字异常:", serializeError(error));
+    showLoading(tabId, "hide");
+    showToast(tabId, "error", error.message || "保存文字失败，请稍后重试");
     throw error;
   }
 }
-
 
 async function handleControlFeatureExecute(request) {
   const featureId = request?.featureId;
   const payload = request?.payload || {};
 
-  return { success: false, error: '未识别的功能组件' };
+  return { success: false, error: "未识别的功能组件" };
 }
 
 function storageGet(keys) {
@@ -796,14 +827,14 @@ async function hasAuthenticatedSession() {
 
 function normalizeIdentityValue(value) {
   if (value === null || value === undefined) {
-    return '';
+    return "";
   }
   return String(value).trim().toLowerCase();
 }
 
 function pickNormalizedIdentityValue(source, keys) {
-  if (!source || typeof source !== 'object') {
-    return '';
+  if (!source || typeof source !== "object") {
+    return "";
   }
 
   for (const key of keys) {
@@ -813,22 +844,23 @@ function pickNormalizedIdentityValue(source, keys) {
     }
   }
 
-  return '';
+  return "";
 }
 
 function buildSessionIdentity(userInfo) {
-  const source = userInfo && typeof userInfo === 'object' ? userInfo : {};
+  const source = userInfo && typeof userInfo === "object" ? userInfo : {};
   return {
-    userId: pickNormalizedIdentityValue(source, ['id', 'userId']),
-    account: pickNormalizedIdentityValue(source, ['account', 'username']),
-    displayName: String(
-      source.account ||
-      source.username ||
-      source.name ||
-      source.nickname ||
-      source.id ||
-      ''
-    ).trim() || '当前账号',
+    userId: pickNormalizedIdentityValue(source, ["id", "userId"]),
+    account: pickNormalizedIdentityValue(source, ["account", "username"]),
+    displayName:
+      String(
+        source.account ||
+          source.username ||
+          source.name ||
+          source.nickname ||
+          source.id ||
+          "",
+      ).trim() || "当前账号",
   };
 }
 
@@ -854,34 +886,34 @@ async function fetchLocalClientSession() {
 
   try {
     const response = await fetch(sessionUrl, {
-      method: 'GET',
-      cache: 'no-store',
+      method: "GET",
+      cache: "no-store",
     });
 
     if (!response.ok) {
-      const message = await response.text().catch(() => '');
+      const message = await response.text().catch(() => "");
       throw new Error(message || `HTTP ${response.status}`);
     }
 
     const payload = await response.json().catch(() => ({}));
-    const user = payload?.user && typeof payload.user === 'object'
-      ? payload.user
-      : {};
+    const user =
+      payload?.user && typeof payload.user === "object" ? payload.user : {};
 
     return {
       ok: true,
       endpoint: sessionUrl,
       authorized: Boolean(payload?.authorized || payload?.isAuthorized),
-      userId: pickNormalizedIdentityValue(user, ['id', 'userId']),
-      account: pickNormalizedIdentityValue(user, ['account', 'username']),
-      displayName: String(
-        user.account ||
-        user.username ||
-        user.name ||
-        user.nickname ||
-        user.id ||
-        ''
-      ).trim() || null,
+      userId: pickNormalizedIdentityValue(user, ["id", "userId"]),
+      account: pickNormalizedIdentityValue(user, ["account", "username"]),
+      displayName:
+        String(
+          user.account ||
+            user.username ||
+            user.name ||
+            user.nickname ||
+            user.id ||
+            "",
+        ).trim() || null,
       raw: payload,
     };
   } catch (error) {
@@ -906,7 +938,7 @@ function isSameSessionIdentity(extensionIdentity, clientSession) {
   return false;
 }
 
-async function ensureClientConnectionAllowed(context = 'manual') {
+async function ensureClientConnectionAllowed(context = "manual") {
   const extensionSession = await getAuthenticatedExtensionSession();
   if (!extensionSession) {
     return {
@@ -958,13 +990,14 @@ async function ensureClientIdentifier() {
     if (clientId) {
       return clientId;
     }
-    const generatedId = (self.crypto && self.crypto.randomUUID)
-      ? self.crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const generatedId =
+      self.crypto && self.crypto.randomUUID
+        ? self.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     await storageSet({ [CLIENT_ID_QUERY_KEY]: generatedId });
     return generatedId;
   } catch (error) {
-    log('生成 clientId 失败，使用临时 ID', serializeError(error));
+    log("生成 clientId 失败，使用临时 ID", serializeError(error));
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 }
@@ -977,7 +1010,7 @@ function getPlatformInfoSafe() {
     }
     chrome.runtime.getPlatformInfo((info) => {
       if (chrome.runtime.lastError) {
-        log('获取平台信息失败:', chrome.runtime.lastError.message);
+        log("获取平台信息失败:", chrome.runtime.lastError.message);
         resolve(undefined);
       } else {
         resolve(info);
@@ -987,16 +1020,16 @@ function getPlatformInfoSafe() {
 }
 
 function parseBrowserInfo(userAgent) {
-  if (!userAgent || typeof userAgent !== 'string') {
+  if (!userAgent || typeof userAgent !== "string") {
     return undefined;
   }
 
   const browserMatchers = [
-    { name: 'Edge', regex: /Edg\/([\d.]+)/ },
-    { name: 'Chrome', regex: /Chrome\/([\d.]+)/ },
-    { name: 'Firefox', regex: /Firefox\/([\d.]+)/ },
-    { name: 'Safari', regex: /Version\/([\d.]+).*Safari/ },
-    { name: 'Opera', regex: /OPR\/([\d.]+)/ }
+    { name: "Edge", regex: /Edg\/([\d.]+)/ },
+    { name: "Chrome", regex: /Chrome\/([\d.]+)/ },
+    { name: "Firefox", regex: /Firefox\/([\d.]+)/ },
+    { name: "Safari", regex: /Version\/([\d.]+).*Safari/ },
+    { name: "Opera", regex: /OPR\/([\d.]+)/ },
   ];
 
   for (const matcher of browserMatchers) {
@@ -1004,28 +1037,28 @@ function parseBrowserInfo(userAgent) {
     if (match) {
       return {
         name: matcher.name,
-        version: match[1]
+        version: match[1],
       };
     }
   }
 
   return {
-    name: 'Unknown',
-    version: undefined
+    name: "Unknown",
+    version: undefined,
   };
 }
 
 function parseOsInfo(userAgent) {
-  if (!userAgent || typeof userAgent !== 'string') {
+  if (!userAgent || typeof userAgent !== "string") {
     return undefined;
   }
 
   const osMatchers = [
-    { name: 'Windows', regex: /Windows NT ([\d.]+)/ },
-    { name: 'macOS', regex: /Mac OS X ([\d_]+)/ },
-    { name: 'iOS', regex: /iPhone OS ([\d_]+)/ },
-    { name: 'Android', regex: /Android ([\d.]+)/ },
-    { name: 'Linux', regex: /Linux/ }
+    { name: "Windows", regex: /Windows NT ([\d.]+)/ },
+    { name: "macOS", regex: /Mac OS X ([\d_]+)/ },
+    { name: "iOS", regex: /iPhone OS ([\d_]+)/ },
+    { name: "Android", regex: /Android ([\d.]+)/ },
+    { name: "Linux", regex: /Linux/ },
   ];
 
   for (const matcher of osMatchers) {
@@ -1033,13 +1066,13 @@ function parseOsInfo(userAgent) {
     if (match) {
       return {
         name: matcher.name,
-        version: match[1]?.replace(/_/g, '.')
+        version: match[1]?.replace(/_/g, "."),
       };
     }
   }
 
   return {
-    name: 'Unknown'
+    name: "Unknown",
   };
 }
 
@@ -1054,7 +1087,7 @@ async function ensureClientMetadata() {
   clientMetadataPromise = (async () => {
     const [platformInfo, clientId] = await Promise.all([
       getPlatformInfoSafe(),
-      ensureClientIdentifier()
+      ensureClientIdentifier(),
     ]);
 
     const manifest = chrome.runtime?.getManifest?.() || {};
@@ -1067,7 +1100,7 @@ async function ensureClientMetadata() {
       try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone;
       } catch (error) {
-        log('获取时区失败:', serializeError(error));
+        log("获取时区失败:", serializeError(error));
         return undefined;
       }
     })();
@@ -1098,7 +1131,7 @@ async function ensureClientMetadata() {
     return metadata;
   })()
     .catch((error) => {
-      log('收集客户端信息失败:', serializeError(error));
+      log("收集客户端信息失败:", serializeError(error));
       return undefined;
     })
     .finally(() => {
@@ -1115,7 +1148,7 @@ function cloneMetadata(metadata) {
   try {
     return JSON.parse(JSON.stringify(metadata));
   } catch (error) {
-    log('克隆客户端信息失败:', serializeError(error));
+    log("克隆客户端信息失败:", serializeError(error));
     return null;
   }
 }
@@ -1136,8 +1169,9 @@ function buildConnectionQuery(metadata) {
     query[CLIENT_ID_QUERY_KEY] = metadata.clientId;
   }
 
-  const entries = Object.entries(query)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '');
+  const entries = Object.entries(query).filter(
+    ([, value]) => value !== undefined && value !== null && value !== "",
+  );
 
   return entries.reduce((acc, [key, value]) => {
     acc[key] = String(value);
@@ -1163,11 +1197,13 @@ function emitClientInfo(extraPayload) {
   if (!clientMetadata || !socket || !socket.connected) {
     return;
   }
-  const payload = extraPayload ? { ...clientMetadata, ...extraPayload } : clientMetadata;
+  const payload = extraPayload
+    ? { ...clientMetadata, ...extraPayload }
+    : clientMetadata;
   try {
-    socket.emit('client-info', payload);
+    socket.emit("client-info", payload);
   } catch (error) {
-    log('发送客户端信息失败:', serializeError(error));
+    log("发送客户端信息失败:", serializeError(error));
   }
 }
 
@@ -1188,7 +1224,7 @@ async function prefetchLocationInfo() {
       emitClientInfo();
     }
   } catch (error) {
-    log('获取位置信息失败:', serializeError(error));
+    log("获取位置信息失败:", serializeError(error));
   }
 }
 
@@ -1197,7 +1233,11 @@ async function ensureLocationInfo() {
     const cache = await storageGet([LOCATION_CACHE_KEY]);
     const cachedEntry = cache?.[LOCATION_CACHE_KEY];
     const now = Date.now();
-    if (cachedEntry && cachedEntry.timestamp && now - cachedEntry.timestamp < LOCATION_CACHE_TTL) {
+    if (
+      cachedEntry &&
+      cachedEntry.timestamp &&
+      now - cachedEntry.timestamp < LOCATION_CACHE_TTL
+    ) {
       return cachedEntry.location;
     }
 
@@ -1209,12 +1249,12 @@ async function ensureLocationInfo() {
           location,
         },
       }).catch((error) => {
-        log('缓存位置信息失败:', serializeError(error));
+        log("缓存位置信息失败:", serializeError(error));
       });
     }
     return location;
   } catch (error) {
-    log('ensureLocationInfo 出错:', serializeError(error));
+    log("ensureLocationInfo 出错:", serializeError(error));
     return undefined;
   }
 }
@@ -1224,8 +1264,8 @@ async function fetchClientLocation() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     const response = await fetch(LOCATION_ENDPOINT, {
-      method: 'GET',
-      cache: 'no-store',
+      method: "GET",
+      cache: "no-store",
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -1264,10 +1304,10 @@ async function fetchClientLocation() {
       fetchedAt: new Date().toISOString(),
     };
   } catch (error) {
-    if (error?.name === 'AbortError') {
-      log('请求位置信息超时');
+    if (error?.name === "AbortError") {
+      log("请求位置信息超时");
     } else {
-      log('请求位置信息失败:', serializeError(error));
+      log("请求位置信息失败:", serializeError(error));
     }
     return undefined;
   }
@@ -1278,18 +1318,18 @@ function broadcastWsState() {
 
   chrome.storage.local.set({ wsStatus: snapshot }, () => {
     if (chrome.runtime.lastError) {
-      log('存储 WebSocket 状态失败:', chrome.runtime.lastError.message);
+      log("存储 WebSocket 状态失败:", chrome.runtime.lastError.message);
     }
   });
 
   chrome.runtime.sendMessage(
-    { type: 'wsStatus:update', payload: snapshot },
+    { type: "wsStatus:update", payload: snapshot },
     () => {
       const err = chrome.runtime.lastError;
-      if (err && !err.message.includes('Receiving end does not exist.')) {
-        log('广播 WebSocket 状态失败:', err.message);
+      if (err && !err.message.includes("Receiving end does not exist.")) {
+        log("广播 WebSocket 状态失败:", err.message);
       }
-    }
+    },
   );
 }
 
@@ -1298,18 +1338,18 @@ function broadcastClientWsState() {
 
   chrome.storage.local.set({ clientWsStatus: snapshot }, () => {
     if (chrome.runtime.lastError) {
-      log('存储客户端 WebSocket 状态失败:', chrome.runtime.lastError.message);
+      log("存储客户端 WebSocket 状态失败:", chrome.runtime.lastError.message);
     }
   });
 
   chrome.runtime.sendMessage(
-    { type: 'clientWsStatus:update', payload: snapshot },
+    { type: "clientWsStatus:update", payload: snapshot },
     () => {
       const err = chrome.runtime.lastError;
-      if (err && !err.message.includes('Receiving end does not exist.')) {
-        log('广播客户端 WebSocket 状态失败:', err.message);
+      if (err && !err.message.includes("Receiving end does not exist.")) {
+        log("广播客户端 WebSocket 状态失败:", err.message);
       }
-    }
+    },
   );
 }
 
@@ -1391,10 +1431,10 @@ function stopClientHeartbeatTimers() {
 function scheduleClientHeartbeatTimeout() {
   clearClientHeartbeatTimeout();
   clientHeartbeatTimeoutTimer = setTimeout(() => {
-    log('[ClientWS] 心跳超时，准备重连');
+    log("[ClientWS] 心跳超时，准备重连");
     updateClientWsState({
-      status: 'error',
-      lastError: 'Heartbeat timeout',
+      status: "error",
+      lastError: "Heartbeat timeout",
     });
     if (clientSocket) {
       clientSocket.disconnect();
@@ -1410,7 +1450,7 @@ function sendClientHeartbeat() {
   updateClientWsState({
     lastPingAt: new Date(clientLastPingTimestampMs).toISOString(),
   });
-  clientSocket.emit('ping');
+  clientSocket.emit("ping");
   scheduleClientHeartbeatTimeout();
 }
 
@@ -1429,7 +1469,7 @@ function disconnectClientWebsocket(reason) {
   stopClientHeartbeatTimers();
   cleanupClientSocket();
   updateClientWsState({
-    status: 'disconnected',
+    status: "disconnected",
     connectedAt: null,
     lastError: reason || null,
     retryCount: 0,
@@ -1440,7 +1480,7 @@ function disconnectWebsocket(reason) {
   stopHeartbeatTimers();
   cleanupSocket();
   updateWsState({
-    status: 'disconnected',
+    status: "disconnected",
     connectedAt: null,
     lastError: reason || null,
     retryCount: 0,
@@ -1450,10 +1490,10 @@ function disconnectWebsocket(reason) {
 function scheduleHeartbeatTimeout() {
   clearHeartbeatTimeout();
   heartbeatTimeoutTimer = setTimeout(() => {
-    log('心跳超时，准备重连');
+    log("心跳超时，准备重连");
     updateWsState({
-      status: 'error',
-      lastError: 'Heartbeat timeout',
+      status: "error",
+      lastError: "Heartbeat timeout",
     });
     if (socket) {
       socket.disconnect();
@@ -1470,7 +1510,7 @@ function sendHeartbeat() {
   updateWsState({
     lastPingAt: new Date(lastPingTimestampMs).toISOString(),
   });
-  socket.emit('ping');
+  socket.emit("ping");
   scheduleHeartbeatTimeout();
 }
 
@@ -1481,11 +1521,13 @@ function startHeartbeatLoop() {
 }
 
 async function initWebsocket() {
-  if (!scriptsLoaded.socketio || typeof io === 'undefined') {
-    const errorMsg = scriptsLoaded.error || 'socket.io client 不可用，请确保 socket.io.min.js 已正确导入';
-    log('Socket.IO 初始化失败:', errorMsg);
+  if (!scriptsLoaded.socketio || typeof io === "undefined") {
+    const errorMsg =
+      scriptsLoaded.error ||
+      "socket.io client 不可用，请确保 socket.io.min.js 已正确导入";
+    log("Socket.IO 初始化失败:", errorMsg);
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: errorMsg,
     });
     return;
@@ -1495,9 +1537,9 @@ async function initWebsocket() {
   const endpointConfigError = getWebsocketConfigError(normalizedEndpoint);
   if (endpointConfigError) {
     wsEndpoint = normalizedEndpoint;
-    log('跳过远程 WebSocket 连接:', endpointConfigError);
+    log("跳过远程 WebSocket 连接:", endpointConfigError);
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: endpointConfigError,
       retryCount: 0,
     });
@@ -1521,16 +1563,16 @@ async function initWebsocket() {
   cleanupSocket();
 
   updateWsState({
-    status: 'connecting',
+    status: "connecting",
     lastError: null,
     retryCount: 0,
   });
 
   wsEndpoint = normalizedEndpoint;
-  log('开始连接到 WebSocket:', wsEndpoint);
+  log("开始连接到 WebSocket:", wsEndpoint);
 
   socket = io(wsEndpoint, {
-    transports: ['websocket'],
+    transports: ["websocket"],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2000,
@@ -1540,11 +1582,11 @@ async function initWebsocket() {
     auth,
   });
 
-  socket.on('connect', () => {
-    log('WebSocket 已连接');
+  socket.on("connect", () => {
+    log("WebSocket 已连接");
     lastPingTimestampMs = null;
     updateWsState({
-      status: 'connected',
+      status: "connected",
       connectedAt: new Date().toISOString(),
       lastError: null,
       lastLatencyMs: null,
@@ -1556,66 +1598,66 @@ async function initWebsocket() {
     startHeartbeatLoop();
   });
 
-  socket.io.on('reconnect_attempt', (attempt) => {
-    log('正在尝试重连', attempt);
+  socket.io.on("reconnect_attempt", (attempt) => {
+    log("正在尝试重连", attempt);
     updateWsState({
-      status: 'reconnecting',
+      status: "reconnecting",
       retryCount: attempt,
     });
   });
 
-  socket.io.on('reconnect_failed', () => {
-    log('重连失败');
+  socket.io.on("reconnect_failed", () => {
+    log("重连失败");
     updateWsState({
-      status: 'error',
-      lastError: 'Reconnect failed',
+      status: "error",
+      lastError: "Reconnect failed",
     });
   });
 
-  socket.io.on('reconnect_error', (error) => {
+  socket.io.on("reconnect_error", (error) => {
     const message = serializeError(error);
-    log('重连错误', message);
+    log("重连错误", message);
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  socket.on('disconnect', (reason) => {
-    log('WebSocket 已断开', reason);
+  socket.on("disconnect", (reason) => {
+    log("WebSocket 已断开", reason);
     stopHeartbeatTimers();
     updateWsState({
-      status: 'disconnected',
+      status: "disconnected",
       connectedAt: null,
       lastError: reason || null,
     });
   });
 
-  socket.on('connect_error', (error) => {
+  socket.on("connect_error", (error) => {
     const message = serializeError(error);
-    log('连接错误', message);
+    log("连接错误", message);
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  socket.on('error', (error) => {
+  socket.on("error", (error) => {
     const message = serializeError(error);
-    log('Socket 错误', message);
+    log("Socket 错误", message);
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  socket.on('pong', (payload) => {
+  socket.on("pong", (payload) => {
     clearHeartbeatTimeout();
     const now = Date.now();
     const latency = lastPingTimestampMs ? now - lastPingTimestampMs : null;
     lastPingTimestampMs = null;
     updateWsState({
-      status: 'connected',
+      status: "connected",
       lastPongAt: new Date(now).toISOString(),
       lastLatencyMs: latency,
       lastError: null,
@@ -1624,13 +1666,13 @@ async function initWebsocket() {
   });
 
   // 监听来自管理系统的消息
-  socket.on('admin-message', (data) => {
-    log('[admin-message] 收到管理员消息事件');
-    log('[admin-message] 消息数据:', data);
-    log('[admin-message] 消息数据类型:', typeof data);
-    log('[admin-message] 消息数据是否为对象:', typeof data === 'object');
-    if (typeof data === 'object' && data !== null) {
-      log('[admin-message] 消息数据键:', Object.keys(data));
+  socket.on("admin-message", (data) => {
+    log("[admin-message] 收到管理员消息事件");
+    log("[admin-message] 消息数据:", data);
+    log("[admin-message] 消息数据类型:", typeof data);
+    log("[admin-message] 消息数据是否为对象:", typeof data === "object");
+    if (typeof data === "object" && data !== null) {
+      log("[admin-message] 消息数据键:", Object.keys(data));
     }
     handleAdminMessage(data);
   });
@@ -1638,13 +1680,13 @@ async function initWebsocket() {
   // 监听所有其他消息事件（用于调试）
   socket.onAny((event, ...args) => {
     log(`[onAny] 收到事件: ${event}`, args);
-    if (event === 'admin-message') {
-      log('[onAny] admin-message 事件数据:', args);
+    if (event === "admin-message") {
+      log("[onAny] admin-message 事件数据:", args);
     }
   });
 }
 
-async function connectWebsocketIfAuthenticated(context = 'manual') {
+async function connectWebsocketIfAuthenticated(context = "manual") {
   const hasSession = await hasAuthenticatedSession();
   if (!hasSession) {
     log(`[WS] ${context}: 未检测到登录信息，暂不建立连接`);
@@ -1657,7 +1699,7 @@ async function connectWebsocketIfAuthenticated(context = 'manual') {
     return true;
   }
 
-  if (wsState.status === 'connecting' || wsState.status === 'reconnecting') {
+  if (wsState.status === "connecting" || wsState.status === "reconnecting") {
     log(`[WS] ${context}: WebSocket 正在连接中，跳过重复触发`);
     return true;
   }
@@ -1684,11 +1726,13 @@ async function connectWebsocketIfAuthenticated(context = 'manual') {
 
 // 初始化本地客户端 WebSocket 连接
 async function initClientWebsocket() {
-  if (!scriptsLoaded.socketio || typeof io === 'undefined') {
-    const errorMsg = scriptsLoaded.error || 'socket.io client 不可用，请确保 socket.io.min.js 已正确导入';
-    log('[ClientWS] Socket.IO 初始化失败:', errorMsg);
+  if (!scriptsLoaded.socketio || typeof io === "undefined") {
+    const errorMsg =
+      scriptsLoaded.error ||
+      "socket.io client 不可用，请确保 socket.io.min.js 已正确导入";
+    log("[ClientWS] Socket.IO 初始化失败:", errorMsg);
     updateClientWsState({
-      status: 'error',
+      status: "error",
       lastError: errorMsg,
     });
     return;
@@ -1699,12 +1743,12 @@ async function initClientWebsocket() {
   cleanupClientSocket();
 
   updateClientWsState({
-    status: 'connecting',
+    status: "connecting",
     lastError: null,
     retryCount: 0,
   });
 
-  log('[ClientWS] 开始连接到本地客户端 WebSocket:', clientWsEndpoint);
+  log("[ClientWS] 开始连接到本地客户端 WebSocket:", clientWsEndpoint);
 
   // 获取客户端元数据
   const metadata = await ensureClientMetadata();
@@ -1716,12 +1760,12 @@ async function initClientWebsocket() {
   try {
     query[CLIENT_INFO_QUERY_KEY] = JSON.stringify(metadata);
   } catch (e) {
-    log('[ClientWS] 序列化客户端信息失败:', e);
+    log("[ClientWS] 序列化客户端信息失败:", e);
   }
 
   clientSocket = io(clientWsEndpoint, {
-    path: '/ws',
-    transports: ['websocket', 'polling'],
+    path: "/ws",
+    transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2000,
@@ -1730,11 +1774,11 @@ async function initClientWebsocket() {
     query,
   });
 
-  clientSocket.on('connect', () => {
-    log('[ClientWS] 本地客户端 WebSocket 已连接');
+  clientSocket.on("connect", () => {
+    log("[ClientWS] 本地客户端 WebSocket 已连接");
     clientLastPingTimestampMs = null;
     updateClientWsState({
-      status: 'connected',
+      status: "connected",
       connectedAt: new Date().toISOString(),
       lastError: null,
       lastLatencyMs: null,
@@ -1743,66 +1787,68 @@ async function initClientWebsocket() {
     startClientHeartbeatLoop();
   });
 
-  clientSocket.io.on('reconnect_attempt', (attempt) => {
-    log('[ClientWS] 正在尝试重连', attempt);
+  clientSocket.io.on("reconnect_attempt", (attempt) => {
+    log("[ClientWS] 正在尝试重连", attempt);
     updateClientWsState({
-      status: 'reconnecting',
+      status: "reconnecting",
       retryCount: attempt,
     });
   });
 
-  clientSocket.io.on('reconnect_failed', () => {
-    log('[ClientWS] 重连失败');
+  clientSocket.io.on("reconnect_failed", () => {
+    log("[ClientWS] 重连失败");
     updateClientWsState({
-      status: 'error',
-      lastError: 'Reconnect failed',
+      status: "error",
+      lastError: "Reconnect failed",
     });
   });
 
-  clientSocket.io.on('reconnect_error', (error) => {
+  clientSocket.io.on("reconnect_error", (error) => {
     const message = serializeError(error);
-    log('[ClientWS] 重连错误', message);
+    log("[ClientWS] 重连错误", message);
     updateClientWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  clientSocket.on('disconnect', (reason) => {
-    log('[ClientWS] 本地客户端 WebSocket 已断开', reason);
+  clientSocket.on("disconnect", (reason) => {
+    log("[ClientWS] 本地客户端 WebSocket 已断开", reason);
     stopClientHeartbeatTimers();
     updateClientWsState({
-      status: 'disconnected',
+      status: "disconnected",
       connectedAt: null,
       lastError: reason || null,
     });
   });
 
-  clientSocket.on('connect_error', (error) => {
+  clientSocket.on("connect_error", (error) => {
     const message = serializeError(error);
-    log('[ClientWS] 连接错误', message);
+    log("[ClientWS] 连接错误", message);
     updateClientWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  clientSocket.on('error', (error) => {
+  clientSocket.on("error", (error) => {
     const message = serializeError(error);
-    log('[ClientWS] Socket 错误', message);
+    log("[ClientWS] Socket 错误", message);
     updateClientWsState({
-      status: 'error',
+      status: "error",
       lastError: message,
     });
   });
 
-  clientSocket.on('pong', (payload) => {
+  clientSocket.on("pong", (payload) => {
     clearClientHeartbeatTimeout();
     const now = Date.now();
-    const latency = clientLastPingTimestampMs ? now - clientLastPingTimestampMs : null;
+    const latency = clientLastPingTimestampMs
+      ? now - clientLastPingTimestampMs
+      : null;
     clientLastPingTimestampMs = null;
     updateClientWsState({
-      status: 'connected',
+      status: "connected",
       lastPongAt: new Date(now).toISOString(),
       lastLatencyMs: latency,
       lastError: null,
@@ -1812,33 +1858,36 @@ async function initClientWebsocket() {
 }
 
 async function connectClientWebsocket() {
-  const access = await ensureClientConnectionAllowed('client-connect');
+  const access = await ensureClientConnectionAllowed("client-connect");
   if (!access.allowed) {
-    log('[ClientWS] 连接前校验失败:', access.reason);
+    log("[ClientWS] 连接前校验失败:", access.reason);
     disconnectClientWebsocket(access.reason);
     throw new Error(access.reason);
   }
 
   if (clientSocket && clientSocket.connected) {
-    log('[ClientWS] 本地客户端 WebSocket 已连接，跳过重复连接');
+    log("[ClientWS] 本地客户端 WebSocket 已连接，跳过重复连接");
     return true;
   }
 
-  if (clientWsState.status === 'connecting' || clientWsState.status === 'reconnecting') {
-    log('[ClientWS] 本地客户端 WebSocket 正在连接中，跳过重复触发');
+  if (
+    clientWsState.status === "connecting" ||
+    clientWsState.status === "reconnecting"
+  ) {
+    log("[ClientWS] 本地客户端 WebSocket 正在连接中，跳过重复触发");
     return true;
   }
 
   if (clientWebsocketInitPromise) {
-    log('[ClientWS] 已有连接任务进行中，等待完成');
+    log("[ClientWS] 已有连接任务进行中，等待完成");
     await clientWebsocketInitPromise;
     return true;
   }
 
-  log('[ClientWS] 开始连接本地客户端 WebSocket');
+  log("[ClientWS] 开始连接本地客户端 WebSocket");
   clientWebsocketInitPromise = initClientWebsocket()
     .catch((error) => {
-      log('[ClientWS] 初始化本地客户端 WebSocket 失败', serializeError(error));
+      log("[ClientWS] 初始化本地客户端 WebSocket 失败", serializeError(error));
       throw error;
     })
     .finally(() => {
@@ -1849,7 +1898,7 @@ async function connectClientWebsocket() {
   return true;
 }
 
-async function forceReconnect(context = 'manual') {
+async function forceReconnect(context = "manual") {
   try {
     log(`[WS] ${context}: 开始强制重连`);
     disconnectWebsocket(`force-reconnect:${context}`);
@@ -1861,7 +1910,7 @@ async function forceReconnect(context = 'manual') {
   } catch (error) {
     log(`[WS] ${context}: 强制重连失败`, serializeError(error));
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: serializeError(error),
     });
     throw error;
@@ -1869,26 +1918,29 @@ async function forceReconnect(context = 'manual') {
 }
 
 function handleAdminMessage(data) {
-  log('[handleAdminMessage] 开始处理管理员消息');
-  log('[handleAdminMessage] 输入数据:', data);
+  log("[handleAdminMessage] 开始处理管理员消息");
+  log("[handleAdminMessage] 输入数据:", data);
 
   try {
     // 尝试通过消息路由器处理命令消息
     if (backgroundGlobal.MessageHandlers?.Router) {
-      backgroundGlobal.MessageHandlers.Router.handle(data, { logFn: log, socket })
+      backgroundGlobal.MessageHandlers.Router.handle(data, {
+        logFn: log,
+        socket,
+      })
         .then((result) => {
           if (result.handled) {
-            log('[handleAdminMessage] 命令消息已处理:', result);
+            log("[handleAdminMessage] 命令消息已处理:", result);
             return; // 命令消息不需要存储和通知
           }
           // 如果不是命令消息，继续处理为普通消息
         })
         .catch((error) => {
-          log('[handleAdminMessage] 处理命令消息失败:', serializeError(error));
+          log("[handleAdminMessage] 处理命令消息失败:", serializeError(error));
         });
 
       // 如果是命令消息，提前返回（不等待异步结果，避免阻塞）
-      if (data && typeof data === 'object' && data.command) {
+      if (data && typeof data === "object" && data.command) {
         return;
       }
     }
@@ -1898,93 +1950,111 @@ function handleAdminMessage(data) {
       data: data,
     };
 
-    log('[handleAdminMessage] 构建的消息数据:', messageData);
-    log('[handleAdminMessage] 时间戳:', messageData.timestamp);
+    log("[handleAdminMessage] 构建的消息数据:", messageData);
+    log("[handleAdminMessage] 时间戳:", messageData.timestamp);
 
     // 存储消息到 storage
-    log('[handleAdminMessage] 开始读取现有消息...');
-    chrome.storage.local.get(['adminMessages'], (result) => {
-      log('[handleAdminMessage] 读取到的现有消息:', result);
+    log("[handleAdminMessage] 开始读取现有消息...");
+    chrome.storage.local.get(["adminMessages"], (result) => {
+      log("[handleAdminMessage] 读取到的现有消息:", result);
       const messages = result.adminMessages || [];
-      log('[handleAdminMessage] 现有消息数量:', messages.length);
+      log("[handleAdminMessage] 现有消息数量:", messages.length);
 
       messages.unshift(messageData);
-      log('[handleAdminMessage] 添加新消息后数量:', messages.length);
+      log("[handleAdminMessage] 添加新消息后数量:", messages.length);
 
       // 只保留最近 50 条消息
       if (messages.length > 50) {
         messages.length = 50;
-        log('[handleAdminMessage] 截断后消息数量:', messages.length);
+        log("[handleAdminMessage] 截断后消息数量:", messages.length);
       }
 
-      log('[handleAdminMessage] 准备存储消息，数量:', messages.length);
+      log("[handleAdminMessage] 准备存储消息，数量:", messages.length);
       chrome.storage.local.set({ adminMessages: messages }, () => {
         if (chrome.runtime.lastError) {
-          log('[handleAdminMessage] 存储管理员消息失败:', chrome.runtime.lastError.message);
+          log(
+            "[handleAdminMessage] 存储管理员消息失败:",
+            chrome.runtime.lastError.message,
+          );
         } else {
-          log('[handleAdminMessage] 消息存储成功');
+          log("[handleAdminMessage] 消息存储成功");
           // 验证存储
-          chrome.storage.local.get(['adminMessages'], (verifyResult) => {
-            log('[handleAdminMessage] 验证存储结果，消息数量:', verifyResult.adminMessages?.length || 0);
+          chrome.storage.local.get(["adminMessages"], (verifyResult) => {
+            log(
+              "[handleAdminMessage] 验证存储结果，消息数量:",
+              verifyResult.adminMessages?.length || 0,
+            );
           });
         }
       });
     });
 
     // 发送通知给 popup 或其他监听者
-    log('[handleAdminMessage] 准备发送消息通知给 popup...');
+    log("[handleAdminMessage] 准备发送消息通知给 popup...");
     chrome.runtime.sendMessage(
       {
-        type: 'adminMessage:received',
+        type: "adminMessage:received",
         payload: messageData,
       },
       (response) => {
         const err = chrome.runtime.lastError;
         if (err) {
-          if (err.message.includes('Receiving end does not exist.')) {
-            log('[handleAdminMessage] Popup 未打开，消息已存储，将在下次打开时显示');
+          if (err.message.includes("Receiving end does not exist.")) {
+            log(
+              "[handleAdminMessage] Popup 未打开，消息已存储，将在下次打开时显示",
+            );
           } else {
-            log('[handleAdminMessage] 广播管理员消息失败:', err.message);
+            log("[handleAdminMessage] 广播管理员消息失败:", err.message);
           }
         } else {
-          log('[handleAdminMessage] 消息通知发送成功，响应:', response);
+          log("[handleAdminMessage] 消息通知发送成功，响应:", response);
         }
-      }
+      },
     );
 
     // 显示浏览器通知（如果用户允许）
     if (chrome.notifications) {
-      log('[handleAdminMessage] 准备创建浏览器通知...');
+      log("[handleAdminMessage] 准备创建浏览器通知...");
       const notificationId = `admin-message-${Date.now()}`;
-      const messageText = typeof data === 'string'
-        ? data
-        : (data?.message || data?.text || JSON.stringify(data));
+      const messageText =
+        typeof data === "string"
+          ? data
+          : data?.message || data?.text || JSON.stringify(data);
 
-      log('[handleAdminMessage] 通知内容:', messageText);
+      log("[handleAdminMessage] 通知内容:", messageText);
 
-      chrome.notifications.create(notificationId, {
-        type: 'basic',
-        iconUrl: chrome.runtime.getURL('assets/logo.png') || '',
-        title: '管理员消息',
-        message: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
-      }, (createdId) => {
-        if (chrome.runtime.lastError) {
-          log('[handleAdminMessage] 创建通知失败:', chrome.runtime.lastError.message);
-        } else {
-          log('[handleAdminMessage] 通知创建成功，ID:', createdId);
-        }
-      });
+      chrome.notifications.create(
+        notificationId,
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("assets/logo.png") || "",
+          title: "管理员消息",
+          message:
+            messageText.length > 100
+              ? messageText.substring(0, 100) + "..."
+              : messageText,
+        },
+        (createdId) => {
+          if (chrome.runtime.lastError) {
+            log(
+              "[handleAdminMessage] 创建通知失败:",
+              chrome.runtime.lastError.message,
+            );
+          } else {
+            log("[handleAdminMessage] 通知创建成功，ID:", createdId);
+          }
+        },
+      );
     } else {
-      log('[handleAdminMessage] chrome.notifications 不可用');
+      log("[handleAdminMessage] chrome.notifications 不可用");
     }
 
-    log('[handleAdminMessage] 处理完成');
+    log("[handleAdminMessage] 处理完成");
   } catch (error) {
-    log('[handleAdminMessage] 处理管理员消息失败:', serializeError(error));
-    log('[handleAdminMessage] 错误堆栈:', error?.stack);
+    log("[handleAdminMessage] 处理管理员消息失败:", serializeError(error));
+    log("[handleAdminMessage] 错误堆栈:", error?.stack);
   }
 }
-
 
 async function ensureEndpoint() {
   try {
@@ -2000,12 +2070,12 @@ async function ensureEndpoint() {
     const isCustom = Boolean(
       result[STORAGE_ENDPOINT_CUSTOM_KEY] &&
       normalizedStoredEndpoint &&
-      !isOpenSourcePlaceholderUrl(normalizedStoredEndpoint)
+      !isOpenSourcePlaceholderUrl(normalizedStoredEndpoint),
     );
 
     if (isCustom) {
       wsEndpoint = normalizedStoredEndpoint;
-      log('使用自定义 WebSocket 端点:', wsEndpoint);
+      log("使用自定义 WebSocket 端点:", wsEndpoint);
     } else {
       const devModeEnabled = Boolean(result[STORAGE_DEV_MODE_KEY]);
       const storedModeEndpoint = devModeEnabled
@@ -2013,32 +2083,33 @@ async function ensureEndpoint() {
         : result[STORAGE_WS_BASE_URL_KEY];
       const normalizedModeEndpoint = normalizeServiceUrl(storedModeEndpoint);
       wsEndpoint = devModeEnabled
-        ? (
-            normalizedModeEndpoint && !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
-              ? normalizedModeEndpoint
-              : DEFAULT_DEV_WS_ENDPOINT
-          )
-        : (
-            normalizedModeEndpoint && !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
-              ? normalizedModeEndpoint
-              : DEFAULT_PROD_WS_ENDPOINT
-          );
-      log(`使用${devModeEnabled ? '开发' : '生产'} WebSocket 端点:`, wsEndpoint);
+        ? normalizedModeEndpoint &&
+          !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
+          ? normalizedModeEndpoint
+          : DEFAULT_DEV_WS_ENDPOINT
+        : normalizedModeEndpoint &&
+            !isOpenSourcePlaceholderUrl(normalizedModeEndpoint)
+          ? normalizedModeEndpoint
+          : DEFAULT_PROD_WS_ENDPOINT;
+      log(
+        `使用${devModeEnabled ? "开发" : "生产"} WebSocket 端点:`,
+        wsEndpoint,
+      );
       await storageSet({
         [STORAGE_ENDPOINT_KEY]: wsEndpoint,
         [STORAGE_ENDPOINT_CUSTOM_KEY]: false,
       }).catch((error) => {
-        log('写入默认端点失败（可忽略）:', serializeError(error));
+        log("写入默认端点失败（可忽略）:", serializeError(error));
       });
     }
   } catch (error) {
-    log('确保端点时出错，使用默认端点:', serializeError(error));
+    log("确保端点时出错，使用默认端点:", serializeError(error));
     wsEndpoint = DEFAULT_PROD_WS_ENDPOINT;
     storageSet({
       [STORAGE_ENDPOINT_KEY]: wsEndpoint,
       [STORAGE_ENDPOINT_CUSTOM_KEY]: false,
     }).catch((err) => {
-      log('写入默认端点失败（可忽略）:', serializeError(err));
+      log("写入默认端点失败（可忽略）:", serializeError(err));
     });
   }
 
@@ -2046,12 +2117,14 @@ async function ensureEndpoint() {
 }
 
 function setEndpoint(newEndpoint, callback) {
-  const normalized = typeof newEndpoint === 'string' ? newEndpoint.trim() : '';
+  const normalized = typeof newEndpoint === "string" ? newEndpoint.trim() : "";
 
   storageGet([STORAGE_DEV_MODE_KEY])
     .then((result) => {
       const devModeEnabled = Boolean(result[STORAGE_DEV_MODE_KEY]);
-      const fallbackEndpoint = devModeEnabled ? DEFAULT_DEV_WS_ENDPOINT : DEFAULT_PROD_WS_ENDPOINT;
+      const fallbackEndpoint = devModeEnabled
+        ? DEFAULT_DEV_WS_ENDPOINT
+        : DEFAULT_PROD_WS_ENDPOINT;
       const effectiveEndpoint = normalized || fallbackEndpoint;
       const isCustom = Boolean(normalized);
 
@@ -2066,25 +2139,24 @@ function setEndpoint(newEndpoint, callback) {
     .then(({ effectiveEndpoint, isCustom }) => {
       wsEndpoint = effectiveEndpoint;
       updateWsState({ endpoint: wsEndpoint });
-      log('WebSocket 端点已更新为:', wsEndpoint, '(custom:', isCustom, ')');
+      log("WebSocket 端点已更新为:", wsEndpoint, "(custom:", isCustom, ")");
       if (socket) {
-        log('端点变更，重新初始化连接');
+        log("端点变更，重新初始化连接");
       }
-      connectWebsocketIfAuthenticated('update-endpoint').catch((error) => {
-        log('[WS] update-endpoint: 重新连接失败', serializeError(error));
+      connectWebsocketIfAuthenticated("update-endpoint").catch((error) => {
+        log("[WS] update-endpoint: 重新连接失败", serializeError(error));
       });
-      if (typeof callback === 'function') {
+      if (typeof callback === "function") {
         callback(null);
       }
     })
     .catch((error) => {
-      log('设置端点失败:', serializeError(error));
-      if (typeof callback === 'function') {
+      log("设置端点失败:", serializeError(error));
+      if (typeof callback === "function") {
         callback(error);
       }
     });
 }
-
 
 async function initialize() {
   try {
@@ -2097,21 +2169,21 @@ async function initialize() {
     broadcastWsState();
     broadcastClientWsState();
     // 4. 如果已经登录，则尝试连接后端 WebSocket
-    const connected = await connectWebsocketIfAuthenticated('initialize');
+    const connected = await connectWebsocketIfAuthenticated("initialize");
     if (!connected) {
-      log('[WS] initialize: 未登录，等待登录信息后再连接');
+      log("[WS] initialize: 未登录，等待登录信息后再连接");
     }
     // 5. 初始化本地客户端连接（要求扩展端和客户端都已登录，且账号一致）
     connectClientWebsocket().catch((error) => {
-      log('[ClientWS] initialize: 连接本地客户端失败', serializeError(error));
+      log("[ClientWS] initialize: 连接本地客户端失败", serializeError(error));
     });
     // 6. 初始化后再次广播状态（确保状态已更新）
     broadcastWsState();
     broadcastClientWsState();
   } catch (error) {
-    log('初始化 WebSocket 失败:', serializeError(error));
+    log("初始化 WebSocket 失败:", serializeError(error));
     updateWsState({
-      status: 'error',
+      status: "error",
       lastError: serializeError(error),
     });
   }
@@ -2120,14 +2192,17 @@ async function initialize() {
 // =============================================================
 // 五、全局错误处理
 // =============================================================
-self.addEventListener('error', (event) => {
-  console.error('[Core][WS] Service Worker 全局错误:', event.error);
-  log('Service Worker 全局错误: ' + serializeError(event.error));
+self.addEventListener("error", (event) => {
+  console.error("[Core][WS] Service Worker 全局错误:", event.error);
+  log("Service Worker 全局错误: " + serializeError(event.error));
 });
 
-self.addEventListener('unhandledrejection', (event) => {
-  console.error('[Core][WS] Service Worker 未处理的 Promise 拒绝:', event.reason);
-  log('Service Worker 未处理的 Promise 拒绝: ' + serializeError(event.reason));
+self.addEventListener("unhandledrejection", (event) => {
+  console.error(
+    "[Core][WS] Service Worker 未处理的 Promise 拒绝:",
+    event.reason,
+  );
+  log("Service Worker 未处理的 Promise 拒绝: " + serializeError(event.reason));
 });
 
 // =============================================================
@@ -2135,38 +2210,53 @@ self.addEventListener('unhandledrejection', (event) => {
 // =============================================================
 
 chrome.runtime.onInstalled.addListener(() => {
-  log('插件已安装');
+  log("插件已安装");
   try {
-    chrome.storage.local.get([STORAGE_ENDPOINT_KEY, STORAGE_ENDPOINT_CUSTOM_KEY], (result) => {
-      if (chrome.runtime.lastError) {
-        log('获取存储失败:', chrome.runtime.lastError.message);
-        return;
-      }
-      if (!result[STORAGE_ENDPOINT_KEY]) {
-        chrome.storage.local.set({
-          [STORAGE_ENDPOINT_KEY]: DEFAULT_WS_ENDPOINT,
-          [STORAGE_ENDPOINT_CUSTOM_KEY]: false,
-        }, () => {
-          if (chrome.runtime.lastError) {
-            log('设置默认端点失败:', chrome.runtime.lastError.message);
-          }
-        });
-      }
-    });
+    chrome.storage.local.get(
+      [STORAGE_ENDPOINT_KEY, STORAGE_ENDPOINT_CUSTOM_KEY],
+      (result) => {
+        if (chrome.runtime.lastError) {
+          log("获取存储失败:", chrome.runtime.lastError.message);
+          return;
+        }
+        if (!result[STORAGE_ENDPOINT_KEY]) {
+          chrome.storage.local.set(
+            {
+              [STORAGE_ENDPOINT_KEY]: DEFAULT_WS_ENDPOINT,
+              [STORAGE_ENDPOINT_CUSTOM_KEY]: false,
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                log("设置默认端点失败:", chrome.runtime.lastError.message);
+              }
+            },
+          );
+        }
+      },
+    );
   } catch (error) {
-    log('onInstalled 处理失败:', serializeError(error));
+    log("onInstalled 处理失败:", serializeError(error));
   }
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local') {
+  if (areaName !== "local") {
     return;
   }
-  const tokenChanged = Object.prototype.hasOwnProperty.call(changes, AUTH_TOKEN_KEY);
-  const userInfoChanged = Object.prototype.hasOwnProperty.call(changes, AUTH_USER_INFO_KEY);
+  const tokenChanged = Object.prototype.hasOwnProperty.call(
+    changes,
+    AUTH_TOKEN_KEY,
+  );
+  const userInfoChanged = Object.prototype.hasOwnProperty.call(
+    changes,
+    AUTH_USER_INFO_KEY,
+  );
   const devConfigChanged =
     Object.prototype.hasOwnProperty.call(changes, STORAGE_DEV_MODE_KEY) ||
-    Object.prototype.hasOwnProperty.call(changes, STORAGE_DEV_WS_BASE_URL_KEY) ||
+    Object.prototype.hasOwnProperty.call(
+      changes,
+      STORAGE_DEV_WS_BASE_URL_KEY,
+    ) ||
     Object.prototype.hasOwnProperty.call(changes, STORAGE_WS_BASE_URL_KEY);
 
   if (tokenChanged || userInfoChanged) {
@@ -2178,34 +2268,33 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         return;
       }
 
-      await forceReconnect('auth-state-change');
-      disconnectClientWebsocket('auth-state-change');
+      await forceReconnect("auth-state-change");
+      disconnectClientWebsocket("auth-state-change");
       await connectClientWebsocket();
     })().catch((error) => {
-      log('[WS] auth-state-change: 处理失败', serializeError(error));
+      log("[WS] auth-state-change: 处理失败", serializeError(error));
     });
   }
 
   if (devConfigChanged) {
-    forceReconnect('dev-config-change')
-      .catch((error) => {
-        log('[WS] dev-config-change: 处理失败', serializeError(error));
-      });
+    forceReconnect("dev-config-change").catch((error) => {
+      log("[WS] dev-config-change: 处理失败", serializeError(error));
+    });
 
-    disconnectClientWebsocket('dev-config-change');
+    disconnectClientWebsocket("dev-config-change");
     connectClientWebsocket().catch((error) => {
-      log('[ClientWS] dev-config-change: 处理失败', serializeError(error));
+      log("[ClientWS] dev-config-change: 处理失败", serializeError(error));
     });
   }
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  log('浏览器启动，开始初始化');
+  log("浏览器启动，开始初始化");
   initialize().catch((error) => {
-    log('启动时初始化失败:', serializeError(error));
+    log("启动时初始化失败:", serializeError(error));
     updateWsState({
-      status: 'error',
-      lastError: '初始化失败: ' + serializeError(error),
+      status: "error",
+      lastError: "初始化失败: " + serializeError(error),
     });
   });
 });
@@ -2214,17 +2303,17 @@ chrome.runtime.onStartup.addListener(() => {
 // 七、Service Worker 启动入口
 // =============================================================
 try {
-  log('Service Worker 开始初始化...');
+  log("Service Worker 开始初始化...");
   initialize().catch((error) => {
-    log('初始化调用失败:', serializeError(error));
+    log("初始化调用失败:", serializeError(error));
     updateWsState({
-      status: 'error',
-      lastError: '初始化失败: ' + serializeError(error),
+      status: "error",
+      lastError: "初始化失败: " + serializeError(error),
     });
   });
 } catch (error) {
-  console.error('[Core][WS] Service Worker 初始化异常:', error);
-  log('Service Worker 初始化异常: ' + serializeError(error));
+  console.error("[Core][WS] Service Worker 初始化异常:", error);
+  log("Service Worker 初始化异常: " + serializeError(error));
 }
 
 // =============================================================
@@ -2232,23 +2321,45 @@ try {
 // =============================================================
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request?.type === 'control/feature-execute') {
+  if (request?.type === "control/feature-execute") {
     handleControlFeatureExecute(request)
       .then((result) => sendResponse(result))
-      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
     return true;
   }
 
-  if (request?.action === 'collectPageImagesToCrawler') {
+  if (request?.action === "collectPageImagesToCrawler") {
     const tabId = sender?.tab?.id ?? null;
     collectPageImagesToCrawler(tabId, request.imageUrls)
       .then((result) => sendResponse(result))
-      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
     return true;
   }
 
-  if (request.action === 'saveData') {
-    chrome.storage.local.get(['crawledData'], (result) => {
+  if (request.action === "collectProduct") {
+    collectProductToServer(request.data)
+      .then((result) => sendResponse(result))
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
+    return true;
+  }
+
+  if (request.action === "getUserApiKey") {
+    getUserApiKeyFromServer(request.feature)
+      .then((result) => sendResponse({ success: true, data: result }))
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
+    return true;
+  }
+
+  if (request.action === "saveData") {
+    chrome.storage.local.get(["crawledData"], (result) => {
       const data = result.crawledData || [];
       data.push({
         site: request.site,
@@ -2262,45 +2373,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'getData') {
-    chrome.storage.local.get(['crawledData'], (result) => {
+  if (request.action === "getData") {
+    chrome.storage.local.get(["crawledData"], (result) => {
       sendResponse({ data: result.crawledData || [] });
     });
     return true;
   }
 
-  if (request.action === 'getWebsocketStatus') {
+  if (request.action === "getWebsocketStatus") {
     sendResponse({ success: true, data: { ...wsState } });
     return true;
   }
 
-  if (request.action === 'getClientWebsocketStatus') {
+  if (request.action === "getClientWebsocketStatus") {
     sendResponse({ success: true, data: { ...clientWsState } });
     return true;
   }
 
-  if (request.action === 'reconnectWebsocket') {
-    forceReconnect('manual-reconnect')
+  if (request.action === "reconnectWebsocket") {
+    forceReconnect("manual-reconnect")
       .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
     return true;
   }
 
-  if (request.action === 'reconnectClientWebsocket') {
+  if (request.action === "reconnectClientWebsocket") {
     connectClientWebsocket()
       .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
     return true;
   }
 
-  if (request.action === 'updateDevMode') {
-    forceReconnect('dev-mode-switch')
+  if (request.action === "updateDevMode") {
+    forceReconnect("dev-mode-switch")
       .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: serializeError(error) }));
+      .catch((error) =>
+        sendResponse({ success: false, error: serializeError(error) }),
+      );
     return true;
   }
 
-  if (request.action === 'setWebsocketEndpoint') {
+  if (request.action === "setWebsocketEndpoint") {
     setEndpoint(request.endpoint, (error) => {
       if (error) {
         sendResponse({ success: false, error: serializeError(error) });
@@ -2313,11 +2430,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    console.log('[Core] 标签页已加载:', tab.url);
+  if (changeInfo.status === "complete" && tab.url) {
+    console.log("[Core] 标签页已加载:", tab.url);
   }
 });
-
 
 // ==================== 右键菜单功能 ====================
 
@@ -2329,91 +2445,107 @@ function initContextMenus() {
   chrome.contextMenus.removeAll(() => {
     // 忽略错误（如果菜单项不存在）
     if (chrome.runtime.lastError) {
-      log('[ContextMenu] 清除菜单项:', chrome.runtime.lastError.message);
+      log("[ContextMenu] 清除菜单项:", chrome.runtime.lastError.message);
     }
 
     // 0) 创建根菜单
     chrome.contextMenus.create({
-      id: 'yishe-extension-root',
-      title: 'YiShe 扩展功能',
-      contexts: ['all']
+      id: "yishe-extension-root",
+      title: "YiShe 扩展功能",
+      contexts: ["all"],
     });
 
     // --- 分组 1: 采集与收藏 ---
     chrome.contextMenus.create({
-      id: 'yishe-group-collect',
-      parentId: 'yishe-extension-root',
-      title: '采集与收藏',
-      contexts: ['all']
+      id: "yishe-group-collect",
+      parentId: "yishe-extension-root",
+      title: "采集与收藏",
+      contexts: ["all"],
     });
 
     // 1-1）保存当前网站
     chrome.contextMenus.create({
-      id: 'save-current-website',
-      parentId: 'yishe-group-collect',
-      title: '保存当前网站',
-      contexts: ['all']
+      id: "save-current-website",
+      parentId: "yishe-group-collect",
+      title: "保存当前网站",
+      contexts: ["all"],
     });
 
     // 1-2）保存选中文字
     chrome.contextMenus.create({
-      id: 'save-selected-text',
-      parentId: 'yishe-group-collect',
-      title: '保存选中文字',
-      contexts: ['selection']
+      id: "save-selected-text",
+      parentId: "yishe-group-collect",
+      title: "保存选中文字",
+      contexts: ["selection"],
     });
 
     // 1-3）上传图片到图片素材库
     chrome.contextMenus.create({
-      id: 'upload-image-to-sticker',
-      parentId: 'yishe-group-collect',
-      title: '上传到图片素材库',
-      contexts: ['image']
+      id: "upload-image-to-sticker",
+      parentId: "yishe-group-collect",
+      title: "上传到图片素材库",
+      contexts: ["image"],
     });
 
     // 1-4）上传图片到爬图素材库
     chrome.contextMenus.create({
-      id: 'upload-image-to-crawler-material',
-      parentId: 'yishe-group-collect',
-      title: '上传到爬图素材库',
-      contexts: ['image']
+      id: "upload-image-to-crawler-material",
+      parentId: "yishe-group-collect",
+      title: "上传到爬图素材库",
+      contexts: ["image"],
     });
 
     // 1-5）批量采集当前页图片到爬图素材库
     chrome.contextMenus.create({
       id: PAGE_IMAGE_COLLECTOR_MENU_ID,
-      parentId: 'yishe-group-collect',
-      title: '批量采集当前页图片到爬图库',
-      contexts: ['all']
+      parentId: "yishe-group-collect",
+      title: "批量采集当前页图片到爬图库",
+      contexts: ["all"],
     });
 
     // 1-6）保存当前预览文件到文件资源
     chrome.contextMenus.create({
-      id: 'save-current-file-resource',
-      parentId: 'yishe-group-collect',
-      title: '保存当前文件到文件资源',
-      contexts: ['all']
+      id: "save-current-file-resource",
+      parentId: "yishe-group-collect",
+      title: "保存当前文件到文件资源",
+      contexts: ["all"],
+    });
+
+    // 1-7）采集当前页商品信息
+    chrome.contextMenus.create({
+      id: "collect-product-info",
+      parentId: "yishe-group-collect",
+      title: "采集当前页商品信息",
+      contexts: ["all"],
+    });
+
+    // 1-8）采集当前页商品信息并AI分析
+    chrome.contextMenus.create({
+      id: "collect-product-info-with-ai",
+      parentId: "yishe-group-collect",
+      title: "采集当前页商品信息并AI分析",
+      contexts: ["all"],
     });
 
     // --- 分组 2: Temu 助手 ---
     chrome.contextMenus.create({
-      id: 'yishe-group-temu',
-      parentId: 'yishe-extension-root',
-      title: 'Temu 助手',
-      contexts: ['all'],
-      documentUrlPatterns: ['*://*.temu.com/*']
+      id: "yishe-group-temu",
+      parentId: "yishe-extension-root",
+      title: "Temu 助手",
+      contexts: ["all"],
+      documentUrlPatterns: ["*://*.temu.com/*"],
     });
 
     // 2-1）清空 Temu 缓存
     chrome.contextMenus.create({
-      id: 'clear-temu-cache',
-      parentId: 'yishe-group-temu',
-      title: '一键清空缓存 & Cookie',
-      contexts: ['all'],
-      documentUrlPatterns: ['*://*.temu.com/*']
+      id: "clear-temu-cache",
+      parentId: "yishe-group-temu",
+      title: "一键清空缓存 & Cookie",
+      contexts: ["all"],
+      documentUrlPatterns: ["*://*.temu.com/*"],
     });
 
-    log('[ContextMenu] 右键菜单已初始化');
+    log("[ContextMenu] 右键菜单已初始化");
   });
 }
 
@@ -2425,7 +2557,7 @@ async function copyToClipboard(text) {
     // 获取当前活动标签页
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tabs || tabs.length === 0) {
-      throw new Error('无法获取当前标签页');
+      throw new Error("无法获取当前标签页");
     }
 
     // 使用 scripting API 在页面中执行复制操作
@@ -2433,54 +2565,55 @@ async function copyToClipboard(text) {
       target: { tabId: tabs[0].id },
       func: (textToCopy) => {
         // 创建一个临时的 textarea 元素
-        const textarea = document.createElement('textarea');
+        const textarea = document.createElement("textarea");
         textarea.value = textToCopy;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
         document.body.appendChild(textarea);
         textarea.select();
 
         try {
-          const successful = document.execCommand('copy');
+          const successful = document.execCommand("copy");
           if (!successful) {
-            throw new Error('复制失败');
+            throw new Error("复制失败");
           }
         } finally {
           document.body.removeChild(textarea);
         }
       },
-      args: [text]
+      args: [text],
     });
 
-    log('[ContextMenu] 文本已复制到剪贴板');
+    log("[ContextMenu] 文本已复制到剪贴板");
     return true;
   } catch (error) {
-    log('[ContextMenu] 复制失败:', serializeError(error));
+    log("[ContextMenu] 复制失败:", serializeError(error));
     throw error;
   }
 }
 
 function resolveUploadTargetMeta(target) {
-  if (target === 'crawler-material') {
+  if (target === "crawler-material") {
     return {
-      label: 'YiShe 爬图素材库',
-      loadingMessage: '正在上传图片到 YiShe 爬图素材库...',
-      successMessage: '图片已上传到 YiShe 爬图素材库',
-      duplicateMessage: '图片正在上传到 YiShe 爬图素材库，请稍候...',
+      label: "YiShe 爬图素材库",
+      loadingMessage: "正在上传图片到 YiShe 爬图素材库...",
+      successMessage: "图片已上传到 YiShe 爬图素材库",
+      duplicateMessage: "图片正在上传到 YiShe 爬图素材库，请稍候...",
     };
   }
 
   return {
-    label: 'YiShe 图片素材库',
-    loadingMessage: '正在上传图片到 YiShe 图片素材库...',
-    successMessage: '图片已上传到 YiShe 图片素材库',
-    duplicateMessage: '图片正在上传到 YiShe 图片素材库，请稍候...',
+    label: "YiShe 图片素材库",
+    loadingMessage: "正在上传图片到 YiShe 图片素材库...",
+    successMessage: "图片已上传到 YiShe 图片素材库",
+    duplicateMessage: "图片正在上传到 YiShe 图片素材库，请稍候...",
   };
 }
 
-const PAGE_IMAGE_COLLECTOR_MENU_ID = 'collect-page-images-to-crawler-material';
-const PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE = 'yishe:page-image-collector:open';
-const PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE = 'yishe:page-image-collector:progress';
+const PAGE_IMAGE_COLLECTOR_MENU_ID = "collect-page-images-to-crawler-material";
+const PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE = "yishe:page-image-collector:open";
+const PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE =
+  "yishe:page-image-collector:progress";
 
 function sendMessageToTab(tabId, payload) {
   return new Promise((resolve, reject) => {
@@ -2502,33 +2635,36 @@ async function ensurePageImageCollectorInjected(tabId) {
 
 async function openPageImageCollector(tabId) {
   if (tabId == null) {
-    throw new Error('无法获取当前标签页');
+    throw new Error("无法获取当前标签页");
   }
 
   try {
     const response = await sendMessageToTab(tabId, {
-      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE
+      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE,
     });
     if (response?.ok) {
       return response;
     }
   } catch (error) {
-    log('[PageImageCollector] 首次打开失败，尝试注入脚本:', serializeError(error));
+    log(
+      "[PageImageCollector] 首次打开失败，尝试注入脚本:",
+      serializeError(error),
+    );
   }
 
   try {
     await ensurePageImageCollectorInjected(tabId);
     const response = await sendMessageToTab(tabId, {
-      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE
+      type: PAGE_IMAGE_COLLECTOR_OPEN_MESSAGE,
     });
     if (response?.ok) {
       return response;
     }
   } catch (error) {
-    log('[PageImageCollector] 采集面板未就绪:', serializeError(error));
+    log("[PageImageCollector] 采集面板未就绪:", serializeError(error));
   }
 
-  throw new Error('无法打开当前页图片采集面板，请刷新页面后重试');
+  throw new Error("无法打开当前页图片采集面板，请刷新页面后重试");
 }
 
 function notifyPageImageCollectorProgress(tabId, payload) {
@@ -2536,14 +2672,18 @@ function notifyPageImageCollectorProgress(tabId, payload) {
     return;
   }
 
-  chrome.tabs.sendMessage(tabId, {
-    type: PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE,
-    ...payload
-  }, () => {
-    if (chrome.runtime.lastError) {
-      // 内容脚本未就绪时静默忽略
-    }
-  });
+  chrome.tabs.sendMessage(
+    tabId,
+    {
+      type: PAGE_IMAGE_COLLECTOR_PROGRESS_MESSAGE,
+      ...payload,
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        // 内容脚本未就绪时静默忽略
+      }
+    },
+  );
 }
 
 function normalizeBatchImageUrls(imageUrls) {
@@ -2551,7 +2691,7 @@ function normalizeBatchImageUrls(imageUrls) {
   const seen = new Set();
 
   for (const value of Array.isArray(imageUrls) ? imageUrls : []) {
-    if (typeof value !== 'string') {
+    if (typeof value !== "string") {
       continue;
     }
 
@@ -2562,7 +2702,7 @@ function normalizeBatchImageUrls(imageUrls) {
 
     try {
       const parsed = new URL(trimmed);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         continue;
       }
 
@@ -2584,18 +2724,16 @@ function normalizeBatchImageUrls(imageUrls) {
 function shouldAbortCrawlerBatchUpload(error) {
   const message = serializeError(error);
   return (
-    message.includes('无法连接到 YiShe 客户端服务') ||
-    message.includes('Failed to fetch') ||
-    message.includes('fetch failed') ||
-    message.includes('ECONNREFUSED') ||
-    message.includes('ERR_CONNECTION_REFUSED')
+    message.includes("无法连接到 YiShe 客户端服务") ||
+    message.includes("Failed to fetch") ||
+    message.includes("fetch failed") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("ERR_CONNECTION_REFUSED")
   );
 }
 
 function buildCrawlerBatchSummaryMessage(summary) {
-  const parts = [
-    `批量采集完成：成功 ${summary.successCount} 张`
-  ];
+  const parts = [`批量采集完成：成功 ${summary.successCount} 张`];
 
   if (summary.failedCount > 0) {
     parts.push(`失败 ${summary.failedCount} 张`);
@@ -2609,13 +2747,101 @@ function buildCrawlerBatchSummaryMessage(summary) {
     parts.push(`未继续 ${summary.abortedCount} 张`);
   }
 
-  return parts.join('，');
+  return parts.join("，");
+}
+
+/**
+ * 将采集的商品数据提交到服务端
+ * @param {Object} collectData - 采集数据
+ * @returns {Promise<Object>} - 提交结果
+ */
+async function collectProductToServer(collectData) {
+  log("[CollectProduct] 开始提交采集数据:", collectData);
+
+  try {
+    const apiUtils = getApiUtils();
+    if (!apiUtils) {
+      throw new Error("ApiUtils 不可用");
+    }
+
+    const apiBaseUrl = await apiUtils.getApiBaseUrl();
+    const token = await apiUtils.getToken();
+
+    if (!apiBaseUrl) {
+      throw new Error("API 基础地址未配置");
+    }
+
+    const endpoint =
+      backgroundGlobal.ApiConfig?.API_ENDPOINTS?.EXTENSION_COLLECT?.CREATE ||
+      "/extension-collect";
+    const url = `${apiBaseUrl.replace(/\/$/, "")}${endpoint}`;
+
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(collectData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      log("[CollectProduct] 提交失败:", response.status, errorText);
+
+      if (response.status === 401) {
+        throw new Error("未登录，请先登录扩展账号");
+      }
+      throw new Error(
+        `提交失败 (${response.status}): ${errorText || response.statusText}`,
+      );
+    }
+
+    const result = await response.json();
+    log("[CollectProduct] 提交成功:", result);
+
+    return { success: true, data: result };
+  } catch (error) {
+    log("[CollectProduct] 提交异常:", serializeError(error));
+    throw error;
+  }
+}
+
+/**
+ * 从服务端获取用户的 AI API Key
+ * @param {string} feature - 功能标识
+ * @returns {Promise<Object>} - API Key 信息
+ */
+async function getUserApiKeyFromServer(feature) {
+  log("[GetUserApiKey] 开始获取 API Key:", feature);
+
+  try {
+    const apiUtils = getApiUtils();
+    if (!apiUtils) {
+      throw new Error("ApiUtils 不可用");
+    }
+
+    const result = await apiUtils.apiRequest("/user/get-api-key", {
+      method: "POST",
+      body: JSON.stringify({ feature: feature || "extension_collect" }),
+    });
+
+    log("[GetUserApiKey] 获取成功:", result);
+    return result;
+  } catch (error) {
+    log("[GetUserApiKey] 获取异常:", serializeError(error));
+    throw error;
+  }
 }
 
 async function collectPageImagesToCrawler(tabId, imageUrls) {
   const normalizedUrls = normalizeBatchImageUrls(imageUrls);
   if (!normalizedUrls.length) {
-    throw new Error('当前页面没有可采集的图片');
+    throw new Error("当前页面没有可采集的图片");
   }
 
   const total = normalizedUrls.length;
@@ -2626,8 +2852,8 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
   const failures = [];
 
   notifyPageImageCollectorProgress(tabId, {
-    phase: 'start',
-    total
+    phase: "start",
+    total,
   });
 
   for (let index = 0; index < normalizedUrls.length; index += 1) {
@@ -2635,30 +2861,30 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
     const current = index + 1;
     const progressMessage = `正在采集到 YiShe 爬图素材库（${current}/${total}）...`;
 
-    setTabBadge(tabId, '...', '#2563eb', progressMessage);
+    setTabBadge(tabId, "...", "#2563eb", progressMessage);
 
-    let status = 'success';
-    let itemMessage = '图片已上传到 YiShe 爬图素材库';
+    let status = "success";
+    let itemMessage = "图片已上传到 YiShe 爬图素材库";
 
     try {
-      if (isImageUploading(imageUrl, 'crawler-material')) {
-        status = 'skipped';
+      if (isImageUploading(imageUrl, "crawler-material")) {
+        status = "skipped";
         skippedCount += 1;
-        itemMessage = '图片正在上传中，已跳过';
+        itemMessage = "图片正在上传中，已跳过";
       } else {
-        await performUpload(tabId, imageUrl, 'crawler-material', {
+        await performUpload(tabId, imageUrl, "crawler-material", {
           loadingMessage: progressMessage,
-          showLoadingOverlay: false
+          showLoadingOverlay: false,
         });
         successCount += 1;
       }
     } catch (error) {
-      status = 'error';
+      status = "error";
       failedCount += 1;
-      itemMessage = serializeError(error) || '上传失败';
+      itemMessage = serializeError(error) || "上传失败";
       failures.push({
         imageUrl,
-        message: itemMessage
+        message: itemMessage,
       });
 
       if (shouldAbortCrawlerBatchUpload(error)) {
@@ -2667,7 +2893,7 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
     }
 
     notifyPageImageCollectorProgress(tabId, {
-      phase: 'item',
+      phase: "item",
       current,
       total,
       url: imageUrl,
@@ -2676,7 +2902,7 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
       successCount,
       failedCount,
       skippedCount,
-      abortedCount
+      abortedCount,
     });
 
     if (abortedCount > 0) {
@@ -2690,18 +2916,21 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
     failedCount,
     skippedCount,
     abortedCount,
-    failures
+    failures,
   };
   const summaryMessage = buildCrawlerBatchSummaryMessage(summary);
-  const toastLevel = failedCount > 0 || abortedCount > 0
-    ? (successCount > 0 ? 'warning' : 'error')
-    : 'success';
+  const toastLevel =
+    failedCount > 0 || abortedCount > 0
+      ? successCount > 0
+        ? "warning"
+        : "error"
+      : "success";
 
   showToast(tabId, toastLevel, summaryMessage, 4200);
   notifyPageImageCollectorProgress(tabId, {
-    phase: 'complete',
+    phase: "complete",
     message: summaryMessage,
-    ...summary
+    ...summary,
   });
 
   return {
@@ -2709,8 +2938,8 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
     data: {
       ...summary,
       message: summaryMessage,
-      level: toastLevel
-    }
+      level: toastLevel,
+    },
   };
 }
 
@@ -2724,15 +2953,16 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
  */
 async function performUpload(tabId, imageUrl, target, options = {}) {
   const targetMeta = resolveUploadTargetMeta(target);
-  const loadingMessage = typeof options.loadingMessage === 'string' && options.loadingMessage.trim()
-    ? options.loadingMessage.trim()
-    : targetMeta.loadingMessage;
+  const loadingMessage =
+    typeof options.loadingMessage === "string" && options.loadingMessage.trim()
+      ? options.loadingMessage.trim()
+      : targetMeta.loadingMessage;
   const showLoadingOverlay = options.showLoadingOverlay !== false;
-  log('[Upload] 开始上传图片:', { tabId, imageUrl, target });
+  log("[Upload] 开始上传图片:", { tabId, imageUrl, target });
   try {
     markImageUploading(imageUrl, target);
     if (showLoadingOverlay) {
-      showLoading(tabId, 'show', loadingMessage);
+      showLoading(tabId, "show", loadingMessage);
     }
 
     const imagePayload = await fetchImagePayloadForUpload(imageUrl);
@@ -2740,9 +2970,9 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
     // 调用本地 yishe-client 提供的接口
     const payload = {
       url: imageUrl,
-      name: '',          // 可以以后改成从图片 alt / 描述推断
-      description: '',   // 暂时留空，由服务端或后续编辑补充
-      keywords: '',      // 暂时留空
+      name: "", // 可以以后改成从图片 alt / 描述推断
+      description: "", // 暂时留空，由服务端或后续编辑补充
+      keywords: "", // 暂时留空
       target,
       imageData: imagePayload.imageData,
       fileName: imagePayload.fileName,
@@ -2754,28 +2984,39 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
     };
 
     const clientBaseUrl = await getEffectiveClientBaseUrl();
-    const clientUploadPath = backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.MATERIAL_UPLOAD
-      || "/api/material-upload";
+    const clientUploadPath =
+      backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.MATERIAL_UPLOAD ||
+      "/api/material-upload";
     const clientUploadUrl = `${clientBaseUrl}${clientUploadPath}`;
 
     const response = await fetch(clientUploadUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      log('[Upload] 上传图片到素材库失败，HTTP 状态异常:', response.status, text);
-      console.error('[YiShe][UploadImage] 上传失败:', response.status, text);
+      const text = await response.text().catch(() => "");
+      log(
+        "[Upload] 上传图片到素材库失败，HTTP 状态异常:",
+        response.status,
+        text,
+      );
+      console.error("[YiShe][UploadImage] 上传失败:", response.status, text);
 
       // 检查是否是服务未运行
-      if (response.status === 0 || text.includes('ECONNREFUSED') || text.includes('Failed to fetch')) {
-        throw new Error('无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动');
+      if (
+        response.status === 0 ||
+        text.includes("ECONNREFUSED") ||
+        text.includes("Failed to fetch")
+      ) {
+        throw new Error(
+          "无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动",
+        );
       } else {
-        throw new Error('上传图片失败（服务端返回错误）');
+        throw new Error("上传图片失败（服务端返回错误）");
       }
     }
 
@@ -2783,32 +3024,32 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
     try {
       result = await response.json();
     } catch (e) {
-      log('[Upload] 解析上传接口响应失败:', serializeError(e));
-      throw new Error('解析服务端响应失败');
+      log("[Upload] 解析上传接口响应失败:", serializeError(e));
+      throw new Error("解析服务端响应失败");
     }
 
-    log('[Upload] 图片上传接口响应:', result);
-    console.log('[YiShe][UploadImage] 图片上传完成:', {
+    log("[Upload] 图片上传接口响应:", result);
+    console.log("[YiShe][UploadImage] 图片上传完成:", {
       imageUrl,
       target,
-      result
+      result,
     });
 
     markImageUploadComplete(imageUrl, target);
 
     return { success: true, result };
   } catch (error) {
-    log('[Upload] 上传异常:', serializeError(error));
-    console.error('[YiShe][UploadImage] 上传异常:', error);
+    log("[Upload] 上传异常:", serializeError(error));
+    console.error("[YiShe][UploadImage] 上传异常:", error);
     markImageUploadComplete(imageUrl, target);
     const errorMessage = serializeError(error);
     if (
-      errorMessage.includes('Failed to fetch') ||
-      errorMessage.includes('fetch failed') ||
-      errorMessage.includes('ECONNREFUSED') ||
-      errorMessage.includes('ERR_CONNECTION_REFUSED')
+      errorMessage.includes("Failed to fetch") ||
+      errorMessage.includes("fetch failed") ||
+      errorMessage.includes("ECONNREFUSED") ||
+      errorMessage.includes("ERR_CONNECTION_REFUSED")
     ) {
-      throw new Error('无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动');
+      throw new Error("无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动");
     }
     throw error instanceof Error ? error : new Error(errorMessage);
   }
@@ -2817,8 +3058,10 @@ async function performUpload(tabId, imageUrl, target, options = {}) {
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(reader.error || new Error('读取图片数据失败'));
+    reader.onloadend = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () =>
+      reject(reader.error || new Error("读取图片数据失败"));
     reader.readAsDataURL(blob);
   });
 }
@@ -2833,7 +3076,7 @@ async function resolveImageSizeFromBlob(blob) {
     bitmap.close();
     return size;
   } catch (error) {
-    log('[Upload] 读取图片尺寸失败:', serializeError(error));
+    log("[Upload] 读取图片尺寸失败:", serializeError(error));
     return {
       width: undefined,
       height: undefined,
@@ -2842,33 +3085,38 @@ async function resolveImageSizeFromBlob(blob) {
 }
 
 function sanitizeUploadFileExtension(extension) {
-  const normalized = String(extension || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normalized = String(extension || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
   if (!normalized) {
-    return 'jpg';
+    return "jpg";
   }
-  if (normalized === 'jpeg') {
-    return 'jpg';
+  if (normalized === "jpeg") {
+    return "jpg";
   }
   return normalized;
 }
 
 function inferImageExtension(imageUrl, contentType) {
-  const urlMatch = String(imageUrl || '').match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
+  const urlMatch = String(imageUrl || "").match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
   if (urlMatch) {
     return sanitizeUploadFileExtension(urlMatch[1]);
   }
 
-  const typeMatch = String(contentType || '').match(/^image\/([a-zA-Z0-9.+-]+)/i);
+  const typeMatch = String(contentType || "").match(
+    /^image\/([a-zA-Z0-9.+-]+)/i,
+  );
   if (typeMatch) {
-    const rawType = typeMatch[1].toLowerCase().split('+')[0];
+    const rawType = typeMatch[1].toLowerCase().split("+")[0];
     return sanitizeUploadFileExtension(rawType);
   }
 
-  return 'jpg';
+  return "jpg";
 }
 
-function sanitizeFileName(value, fallback = 'file') {
-  let decodedValue = String(value || '').trim();
+function sanitizeFileName(value, fallback = "file") {
+  let decodedValue = String(value || "").trim();
   try {
     decodedValue = decodeURIComponent(decodedValue);
   } catch (error) {
@@ -2876,45 +3124,52 @@ function sanitizeFileName(value, fallback = 'file') {
   }
 
   const normalized = decodedValue
-    .replace(/[\\/:*?"<>|]+/g, '_')
-    .replace(/\s+/g, ' ')
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, " ")
     .trim();
   return normalized || fallback;
 }
 
 function sanitizeFileExtension(extension) {
-  return String(extension || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '') || 'bin';
+  return (
+    String(extension || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "bin"
+  );
 }
 
 function inferFileExtension(fileUrl, contentType) {
-  const urlMatch = String(fileUrl || '').match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
+  const urlMatch = String(fileUrl || "").match(/\.([a-zA-Z0-9]+)(?:[?#].*)?$/);
   if (urlMatch) {
     return sanitizeFileExtension(urlMatch[1]);
   }
 
-  const normalizedContentType = String(contentType || '').toLowerCase().split(';')[0].trim();
+  const normalizedContentType = String(contentType || "")
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
   const contentTypeMap = {
-    'application/pdf': 'pdf',
-    'application/zip': 'zip',
-    'application/x-zip-compressed': 'zip',
-    'application/msword': 'doc',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-    'application/vnd.ms-excel': 'xls',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-    'application/vnd.ms-powerpoint': 'ppt',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-    'text/plain': 'txt',
-    'text/csv': 'csv',
+    "application/pdf": "pdf",
+    "application/zip": "zip",
+    "application/x-zip-compressed": "zip",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      "pptx",
+    "text/plain": "txt",
+    "text/csv": "csv",
   };
 
-  return contentTypeMap[normalizedContentType] || 'bin';
+  return contentTypeMap[normalizedContentType] || "bin";
 }
 
 function getFileNameFromContentDisposition(value) {
-  const header = String(value || '');
+  const header = String(value || "");
   const encodedMatch = header.match(/filename\*=UTF-8''([^;]+)/i);
   if (encodedMatch) {
     return sanitizeFileName(encodedMatch[1]);
@@ -2930,7 +3185,7 @@ function getFileNameFromContentDisposition(value) {
     return sanitizeFileName(plainMatch[1]);
   }
 
-  return '';
+  return "";
 }
 
 function inferFileName(fileUrl, contentType, contentDisposition) {
@@ -2941,10 +3196,10 @@ function inferFileName(fileUrl, contentType, contentDisposition) {
 
   try {
     const parsedUrl = new URL(fileUrl);
-    const pathnameName = parsedUrl.pathname.split('/').filter(Boolean).pop();
+    const pathnameName = parsedUrl.pathname.split("/").filter(Boolean).pop();
     if (pathnameName) {
       const decodedName = sanitizeFileName(pathnameName);
-      if (decodedName.includes('.')) {
+      if (decodedName.includes(".")) {
         return decodedName;
       }
       return `${decodedName}.${inferFileExtension(fileUrl, contentType)}`;
@@ -2957,12 +3212,7 @@ function inferFileName(fileUrl, contentType, contentDisposition) {
 }
 
 function getCandidateFileUrl(info, tab) {
-  const candidates = [
-    info?.linkUrl,
-    info?.srcUrl,
-    info?.pageUrl,
-    tab?.url,
-  ];
+  const candidates = [info?.linkUrl, info?.srcUrl, info?.pageUrl, tab?.url];
 
   for (const candidate of candidates) {
     const normalized = normalizeUploadUrl(candidate);
@@ -2971,16 +3221,16 @@ function getCandidateFileUrl(info, tab) {
     }
   }
 
-  return '';
+  return "";
 }
 
 function isLocalFileUrl(fileUrl) {
-  return /^file:\/\//i.test(String(fileUrl || '').trim());
+  return /^file:\/\//i.test(String(fileUrl || "").trim());
 }
 
 function fileUrlToLocalPath(fileUrl) {
   const parsedUrl = new URL(fileUrl);
-  let pathname = parsedUrl.pathname || '';
+  let pathname = parsedUrl.pathname || "";
   try {
     pathname = decodeURIComponent(pathname);
   } catch (error) {
@@ -2991,7 +3241,7 @@ function fileUrlToLocalPath(fileUrl) {
     pathname = pathname.slice(1);
   }
 
-  pathname = pathname.replace(/\//g, '\\');
+  pathname = pathname.replace(/\//g, "\\");
   if (parsedUrl.hostname) {
     return `\\\\${parsedUrl.hostname}${pathname}`;
   }
@@ -3001,10 +3251,10 @@ function fileUrlToLocalPath(fileUrl) {
 
 async function fetchFilePayloadForUpload(fileUrl) {
   const response = await fetch(fileUrl, {
-    method: 'GET',
-    credentials: 'include',
+    method: "GET",
+    credentials: "include",
     headers: {
-      Accept: 'application/pdf,application/octet-stream,*/*',
+      Accept: "application/pdf,application/octet-stream,*/*",
     },
   });
 
@@ -3012,21 +3262,28 @@ async function fetchFilePayloadForUpload(fileUrl) {
     throw new Error(`文件抓取失败（HTTP ${response.status}）`);
   }
 
-  const contentType = String(response.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim() || 'application/octet-stream';
+  const contentType =
+    String(response.headers.get("content-type") || "application/octet-stream")
+      .split(";")[0]
+      .trim() || "application/octet-stream";
   const blob = await response.blob();
   const fileSize = Number(blob.size || 0);
   if (fileSize <= 0) {
-    throw new Error('文件内容为空，无法保存');
+    throw new Error("文件内容为空，无法保存");
   }
   if (fileSize > 100 * 1024 * 1024) {
-    throw new Error('文件过大，请选择小于100MB的文件');
+    throw new Error("文件过大，请选择小于100MB的文件");
   }
 
   const suffix = inferFileExtension(fileUrl, contentType);
-  const fileName = inferFileName(fileUrl, contentType, response.headers.get('content-disposition'));
+  const fileName = inferFileName(
+    fileUrl,
+    contentType,
+    response.headers.get("content-disposition"),
+  );
   const fileData = await blobToDataUrl(blob);
   if (!fileData) {
-    throw new Error('文件转码失败');
+    throw new Error("文件转码失败");
   }
 
   return {
@@ -3039,69 +3296,74 @@ async function fetchFilePayloadForUpload(fileUrl) {
 }
 
 async function performFileResourceUpload(tabId, fileUrl) {
-  log('[FileUpload] 开始保存文件资源:', { tabId, fileUrl });
+  log("[FileUpload] 开始保存文件资源:", { tabId, fileUrl });
 
   try {
     markFileUploading(fileUrl);
-    showLoading(tabId, 'show', '正在保存文件到 YiShe 文件资源...');
+    showLoading(tabId, "show", "正在保存文件到 YiShe 文件资源...");
 
     const isLocalFile = isLocalFileUrl(fileUrl);
     const filePayload = isLocalFile
       ? {
           localFilePath: fileUrlToLocalPath(fileUrl),
-          fileName: inferFileName(fileUrl, 'application/octet-stream', ''),
-          contentType: 'application/octet-stream',
-          suffix: inferFileExtension(fileUrl, 'application/octet-stream'),
+          fileName: inferFileName(fileUrl, "application/octet-stream", ""),
+          contentType: "application/octet-stream",
+          suffix: inferFileExtension(fileUrl, "application/octet-stream"),
           fileSize: undefined,
         }
       : await fetchFilePayloadForUpload(fileUrl);
     const clientBaseUrl = await getEffectiveClientBaseUrl();
-    const clientUploadPath = backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.FILE_UPLOAD
-      || "/api/file-upload";
+    const clientUploadPath =
+      backgroundGlobal.ApiConfig?.CLIENT_ENDPOINTS?.FILE_UPLOAD ||
+      "/api/file-upload";
     const clientUploadUrl = `${clientBaseUrl}${clientUploadPath}`;
 
     const response = await fetch(clientUploadUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         url: fileUrl,
         name: filePayload.fileName,
-        description: '',
+        description: "",
         fileData: filePayload.fileData,
         localFilePath: filePayload.localFilePath,
         fileName: filePayload.fileName,
         contentType: filePayload.contentType,
         suffix: filePayload.suffix,
         fileSize: filePayload.fileSize,
-      })
+      }),
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      log('[FileUpload] 保存文件资源失败，HTTP 状态异常:', response.status, text);
-      throw new Error(text || '保存文件资源失败（服务端返回错误）');
+      const text = await response.text().catch(() => "");
+      log(
+        "[FileUpload] 保存文件资源失败，HTTP 状态异常:",
+        response.status,
+        text,
+      );
+      throw new Error(text || "保存文件资源失败（服务端返回错误）");
     }
 
     const result = await response.json().catch(() => null);
     if (!result?.status && result?.code !== 0) {
-      throw new Error(result?.message || '保存文件资源失败');
+      throw new Error(result?.message || "保存文件资源失败");
     }
 
     markFileUploadComplete(fileUrl);
     return { success: true, result };
   } catch (error) {
-    log('[FileUpload] 保存文件资源异常:', serializeError(error));
+    log("[FileUpload] 保存文件资源异常:", serializeError(error));
     markFileUploadComplete(fileUrl);
     const errorMessage = serializeError(error);
     if (
-      errorMessage.includes('Failed to fetch') ||
-      errorMessage.includes('fetch failed') ||
-      errorMessage.includes('ECONNREFUSED') ||
-      errorMessage.includes('ERR_CONNECTION_REFUSED')
+      errorMessage.includes("Failed to fetch") ||
+      errorMessage.includes("fetch failed") ||
+      errorMessage.includes("ECONNREFUSED") ||
+      errorMessage.includes("ERR_CONNECTION_REFUSED")
     ) {
-      throw new Error('无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动');
+      throw new Error("无法连接到 YiShe 客户端服务，请确保 YiShe 客户端已启动");
     }
     throw error instanceof Error ? error : new Error(errorMessage);
   }
@@ -3109,10 +3371,10 @@ async function performFileResourceUpload(tabId, fileUrl) {
 
 async function fetchImagePayloadForUpload(imageUrl) {
   const response = await fetch(imageUrl, {
-    method: 'GET',
-    credentials: 'include',
+    method: "GET",
+    credentials: "include",
     headers: {
-      Accept: 'image/*',
+      Accept: "image/*",
     },
   });
 
@@ -3120,20 +3382,22 @@ async function fetchImagePayloadForUpload(imageUrl) {
     throw new Error(`图片抓取失败（HTTP ${response.status}）`);
   }
 
-  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-  if (!contentType.startsWith('image/')) {
-    throw new Error('当前链接返回的不是图片内容');
+  const contentType = String(
+    response.headers.get("content-type") || "",
+  ).toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    throw new Error("当前链接返回的不是图片内容");
   }
 
   const blob = await response.blob();
   const fileSize = Number(blob.size || 0);
   if (fileSize > 50 * 1024 * 1024) {
-    throw new Error('图片文件过大，请选择小于50MB的图片');
+    throw new Error("图片文件过大，请选择小于50MB的图片");
   }
 
   const imageData = await blobToDataUrl(blob);
   if (!imageData) {
-    throw new Error('图片转码失败');
+    throw new Error("图片转码失败");
   }
 
   const { width, height } = await resolveImageSizeFromBlob(blob);
@@ -3155,10 +3419,10 @@ async function fetchImagePayloadForUpload(imageUrl) {
  */
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
-    log('[ContextMenu] 右键菜单项被点击:', info.menuItemId);
+    log("[ContextMenu] 右键菜单项被点击:", info.menuItemId);
 
     // 1）保存当前网站到 YiShe
-    if (info.menuItemId === 'save-current-website') {
+    if (info.menuItemId === "save-current-website") {
       const pageUrl = info.pageUrl || tab?.url || null;
       const pageTitle = tab?.title || null;
       const favIconUrl = tab?.favIconUrl || null;
@@ -3166,40 +3430,43 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const tabId = getTabId(tab);
 
       if (!pageUrl) {
-        log('[ContextMenu] 保存网站失败：未获取到页面地址');
-        console.warn('[YiShe][SaveWebsite] 缺少页面地址，info =', info);
-        showToast(tabId, 'warning', '无法识别当前页面地址，暂时无法保存');
+        log("[ContextMenu] 保存网站失败：未获取到页面地址");
+        console.warn("[YiShe][SaveWebsite] 缺少页面地址，info =", info);
+        showToast(tabId, "warning", "无法识别当前页面地址，暂时无法保存");
         return;
       }
 
-      log('[ContextMenu] 准备保存网站到 YiShe:', {
+      log("[ContextMenu] 准备保存网站到 YiShe:", {
         pageUrl,
         pageTitle,
-        favIconUrl
+        favIconUrl,
       });
 
       // 显示 loading 状态
-      showLoading(tabId, 'show', '正在保存网站到 YiShe...');
+      showLoading(tabId, "show", "正在保存网站到 YiShe...");
 
       // 异步保存网站信息
       // 注意：错误处理和 loading 状态管理已在 saveWebsiteToServer 函数内部处理
-      saveWebsiteToServer({
-        url: pageUrl,
-        name: pageTitle || new URL(pageUrl).hostname,
-        description: pageTitle || '',
-        icon: favIconUrl || '',
-        category: '收藏',
-      }, tab).catch((error) => {
+      saveWebsiteToServer(
+        {
+          url: pageUrl,
+          name: pageTitle || new URL(pageUrl).hostname,
+          description: pageTitle || "",
+          icon: favIconUrl || "",
+          category: "收藏",
+        },
+        tab,
+      ).catch((error) => {
         // 错误已在 saveWebsiteToServer 函数内部处理，这里只记录日志
-        log('[ContextMenu] 保存网站失败:', serializeError(error));
-        console.error('[YiShe][SaveWebsite] 保存网站失败:', error);
+        log("[ContextMenu] 保存网站失败:", serializeError(error));
+        console.error("[YiShe][SaveWebsite] 保存网站失败:", error);
       });
 
       return;
     }
 
     // 2）保存选中文字到 YiShe
-    if (info.menuItemId === 'save-selected-text') {
+    if (info.menuItemId === "save-selected-text") {
       const selectedText = info.selectionText || null;
       const pageUrl = info.pageUrl || tab?.url || null;
       const pageTitle = tab?.title || null;
@@ -3207,31 +3474,36 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const tabId = getTabId(tab);
 
       if (!selectedText || selectedText.trim().length === 0) {
-        log('[ContextMenu] 保存文字失败：未获取到选中文字');
-        console.warn('[YiShe][SaveText] 缺少选中文字，info =', info);
-        showToast(tabId, 'warning', '未选中文字，无法保存');
+        log("[ContextMenu] 保存文字失败：未获取到选中文字");
+        console.warn("[YiShe][SaveText] 缺少选中文字，info =", info);
+        showToast(tabId, "warning", "未选中文字，无法保存");
         return;
       }
 
-      log('[ContextMenu] 准备保存文字到 YiShe:', {
-        selectedText: selectedText.substring(0, 50) + (selectedText.length > 50 ? '...' : ''),
+      log("[ContextMenu] 准备保存文字到 YiShe:", {
+        selectedText:
+          selectedText.substring(0, 50) +
+          (selectedText.length > 50 ? "..." : ""),
         pageUrl,
-        pageTitle
+        pageTitle,
       });
 
       // 显示 loading 状态
-      showLoading(tabId, 'show', '正在保存文字到 YiShe...');
+      showLoading(tabId, "show", "正在保存文字到 YiShe...");
 
       // 异步保存文字信息
       // 注意：错误处理和 loading 状态管理已在 saveTextToServer 函数内部处理
-      saveTextToServer({
-        content: selectedText.trim(),
-        description: pageTitle ? `来自：${pageTitle}` : '',
-        keywords: '',
-      }, tab).catch((error) => {
+      saveTextToServer(
+        {
+          content: selectedText.trim(),
+          description: pageTitle ? `来自：${pageTitle}` : "",
+          keywords: "",
+        },
+        tab,
+      ).catch((error) => {
         // 错误已在 saveTextToServer 函数内部处理，这里只记录日志
-        log('[ContextMenu] 保存文字失败:', serializeError(error));
-        console.error('[YiShe][SaveText] 保存文字失败:', error);
+        log("[ContextMenu] 保存文字失败:", serializeError(error));
+        console.error("[YiShe][SaveText] 保存文字失败:", error);
       });
 
       return;
@@ -3240,82 +3512,252 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // 3）批量采集当前页图片到 YiShe 爬图素材库
     if (info.menuItemId === PAGE_IMAGE_COLLECTOR_MENU_ID) {
       const tabId = getTabId(tab);
-      const pageUrl = tab?.url || info.pageUrl || '';
+      const pageUrl = tab?.url || info.pageUrl || "";
 
       if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) {
-        showToast(tabId, 'warning', '当前页面不支持批量采集，请切换到普通网页后重试');
+        showToast(
+          tabId,
+          "warning",
+          "当前页面不支持批量采集，请切换到普通网页后重试",
+        );
         return;
       }
 
       try {
         await openPageImageCollector(tabId);
       } catch (error) {
-        log('[ContextMenu] 打开当前页图片采集面板失败:', serializeError(error));
-        showToast(tabId, 'error', error.message || '打开当前页图片采集面板失败，请刷新页面后重试');
+        log("[ContextMenu] 打开当前页图片采集面板失败:", serializeError(error));
+        showToast(
+          tabId,
+          "error",
+          error.message || "打开当前页图片采集面板失败，请刷新页面后重试",
+        );
       }
 
       return;
     }
 
     // 4）保存当前预览文件到 YiShe 文件资源
-    if (info.menuItemId === 'save-current-file-resource') {
+    if (info.menuItemId === "save-current-file-resource") {
       const tabId = getTabId(tab);
       const fileUrl = getCandidateFileUrl(info, tab);
 
       if (!fileUrl) {
-        showToast(tabId, 'warning', '无法识别当前文件地址，暂时无法保存');
+        showToast(tabId, "warning", "无法识别当前文件地址，暂时无法保存");
         return;
       }
 
       if (isFileUploading(fileUrl)) {
-        showToast(tabId, 'info', '当前文件正在保存到 YiShe 文件资源，请稍候...');
+        showToast(
+          tabId,
+          "info",
+          "当前文件正在保存到 YiShe 文件资源，请稍候...",
+        );
         return;
       }
 
       try {
         await performFileResourceUpload(tabId, fileUrl);
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'success', '文件已保存到 YiShe 文件资源');
+        showLoading(tabId, "hide");
+        showToast(tabId, "success", "文件已保存到 YiShe 文件资源");
       } catch (error) {
-        log('[ContextMenu] 保存文件资源失败:', serializeError(error));
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'error', error.message || '保存文件资源失败，请稍后重试');
+        log("[ContextMenu] 保存文件资源失败:", serializeError(error));
+        showLoading(tabId, "hide");
+        showToast(
+          tabId,
+          "error",
+          error.message || "保存文件资源失败，请稍后重试",
+        );
       }
 
       return;
     }
 
-    // 5）上传图片到 YiShe 图片素材 / 爬图素材
+    // 5）采集当前页商品信息
     if (
-      info.menuItemId === 'upload-image-to-sticker' ||
-      info.menuItemId === 'upload-image-to-crawler-material'
+      info.menuItemId === "collect-product-info" ||
+      info.menuItemId === "collect-product-info-with-ai"
+    ) {
+      const tabId = getTabId(tab);
+      const pageUrl = tab?.url || info.pageUrl || "";
+
+      if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) {
+        showToast(
+          tabId,
+          "warning",
+          "当前页面不支持商品采集，请切换到普通网页后重试",
+        );
+        return;
+      }
+
+      const withAi = info.menuItemId === "collect-product-info-with-ai";
+
+      try {
+        showLoading(
+          tabId,
+          "show",
+          withAi ? "正在采集商品信息并AI分析..." : "正在采集商品信息...",
+        );
+
+        // 在当前页面执行提取脚本
+        const results = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: (doAiAnalysis) => {
+            if (!window.CoreProductExtractor) {
+              return { success: false, error: "商品提取器未加载" };
+            }
+            return {
+              success: true,
+              data: window.CoreProductExtractor.extract(),
+            };
+          },
+          args: [withAi],
+        });
+
+        if (!results || !results[0] || !results[0].result) {
+          throw new Error("提取脚本执行失败");
+        }
+
+        const extractResult = results[0].result;
+        if (!extractResult.success) {
+          throw new Error(extractResult.error || "提取失败");
+        }
+
+        const productData = extractResult.data;
+        if (!productData.title) {
+          throw new Error("未能提取到商品标题，可能不是商品页面");
+        }
+
+        // 如果需要 AI 分析，在 content script 中执行
+        let aiAnalysis = null;
+        let aiModel = null;
+        let aiProvider = null;
+
+        if (withAi) {
+          showLoading(tabId, "show", "正在进行 AI 分析...");
+
+          const aiResults = await chrome.scripting.executeScript({
+            target: { tabId },
+            func: (pData) => {
+              if (
+                !window.CoreSiteModules?.productCollector?.performAiAnalysis
+              ) {
+                return { success: false, error: "AI 分析模块未加载" };
+              }
+              return window.CoreSiteModules.productCollector
+                .performAiAnalysis(pData)
+                .then((result) => ({ success: true, data: result }))
+                .catch((err) => ({ success: false, error: err.message }));
+            },
+            args: [productData],
+          });
+
+          if (aiResults && aiResults[0] && aiResults[0].result) {
+            const aiResult = aiResults[0].result;
+            if (aiResult.success) {
+              aiAnalysis = aiResult.data.analysis;
+              aiModel = aiResult.data.model;
+              aiProvider = aiResult.data.provider;
+            } else {
+              log("[ContextMenu] AI 分析失败:", aiResult.error);
+              showToast(
+                tabId,
+                "warning",
+                `AI 分析失败: ${aiResult.error}，仅保存原始数据`,
+              );
+            }
+          }
+        }
+
+        // 提交到服务端
+        showLoading(tabId, "show", "正在保存到服务端...");
+        const collectData = {
+          collectType: "product",
+          sourceUrl: productData.url,
+          sourceTitle: productData.title,
+          data: {
+            title: productData.title,
+            description: productData.description,
+            price: productData.price,
+            currency: productData.currency,
+            images: productData.images,
+            coverImage: productData.coverImage,
+            specifications: productData.specifications,
+            brand: productData.brand,
+            rating: productData.rating,
+            reviewCount: productData.reviewCount,
+            seller: productData.seller,
+            category: productData.category,
+            platform: productData.platform,
+          },
+          aiAnalysis: aiAnalysis
+            ? {
+                ...aiAnalysis,
+                model: aiModel,
+                provider: aiProvider,
+              }
+            : null,
+        };
+
+        const result = await collectProductToServer(collectData);
+        showLoading(tabId, "hide");
+
+        if (result.success) {
+          showToast(
+            tabId,
+            "success",
+            withAi ? "商品采集并AI分析完成！" : "商品采集成功！",
+          );
+        } else {
+          showToast(
+            tabId,
+            "error",
+            "保存失败: " + (result.error || "未知错误"),
+          );
+        }
+      } catch (error) {
+        log("[ContextMenu] 商品采集失败:", serializeError(error));
+        showLoading(tabId, "hide");
+        showToast(tabId, "error", error.message || "商品采集失败，请稍后重试");
+      }
+
+      return;
+    }
+
+    // 6）上传图片到 YiShe 图片素材 / 爬图素材
+    if (
+      info.menuItemId === "upload-image-to-sticker" ||
+      info.menuItemId === "upload-image-to-crawler-material"
     ) {
       const imageUrl = info.srcUrl || null;
       const pageUrl = info.pageUrl || tab?.url || null;
       const pageTitle = tab?.title || null;
       const target =
-        info.menuItemId === 'upload-image-to-crawler-material'
-          ? 'crawler-material'
-          : 'sticker';
+        info.menuItemId === "upload-image-to-crawler-material"
+          ? "crawler-material"
+          : "sticker";
       const targetMeta = resolveUploadTargetMeta(target);
 
       const tabId = getTabId(tab);
 
       if (!imageUrl) {
-        log('[ContextMenu] 上传图片失败：未获取到图片地址 srcUrl');
-        console.warn('[YiShe][UploadImage] 缺少图片地址 srcUrl，info =', info);
-        showToast(tabId, 'warning', '无法识别当前图片地址，暂时无法上传');
+        log("[ContextMenu] 上传图片失败：未获取到图片地址 srcUrl");
+        console.warn("[YiShe][UploadImage] 缺少图片地址 srcUrl，info =", info);
+        showToast(tabId, "warning", "无法识别当前图片地址，暂时无法上传");
         return;
       }
 
       // 检查是否正在上传相同的图片
       if (isImageUploading(imageUrl, target)) {
-        log('[ContextMenu] 图片正在上传中，跳过重复提交:', { imageUrl, target });
-        showToast(tabId, 'info', targetMeta.duplicateMessage);
+        log("[ContextMenu] 图片正在上传中，跳过重复提交:", {
+          imageUrl,
+          target,
+        });
+        showToast(tabId, "info", targetMeta.duplicateMessage);
         return;
       }
 
-      log('[ContextMenu] 准备上传图片:', {
+      log("[ContextMenu] 准备上传图片:", {
         imageUrl,
         pageUrl,
         pageTitle,
@@ -3324,30 +3766,34 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
       try {
         const result = await performUpload(tabId, imageUrl, target);
-        log('[ContextMenu] 上传成功:', result);
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'success', targetMeta.successMessage);
+        log("[ContextMenu] 上传成功:", result);
+        showLoading(tabId, "hide");
+        showToast(tabId, "success", targetMeta.successMessage);
       } catch (error) {
-        log('[ContextMenu] 上传流程异常:', serializeError(error));
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'error', error.message || '上传图片时发生异常，请稍后重试');
+        log("[ContextMenu] 上传流程异常:", serializeError(error));
+        showLoading(tabId, "hide");
+        showToast(
+          tabId,
+          "error",
+          error.message || "上传图片时发生异常，请稍后重试",
+        );
       }
 
       return;
     }
 
-    // 6）清空 Temu 缓存
-    if (info.menuItemId === 'clear-temu-cache') {
+    // 7）清空 Temu 缓存
+    if (info.menuItemId === "clear-temu-cache") {
       const tabId = getTabId(tab);
-      const url = tab?.url || '';
+      const url = tab?.url || "";
 
-      if (!url.includes('temu.com')) {
-        showToast(tabId, 'warning', '只能在 Temu 网站上使用此功能');
+      if (!url.includes("temu.com")) {
+        showToast(tabId, "warning", "只能在 Temu 网站上使用此功能");
         return;
       }
 
-      log('[ContextMenu] 开始清空 Temu 缓存...');
-      showLoading(tabId, 'show', '正在清空 Temu 缓存...');
+      log("[ContextMenu] 开始清空 Temu 缓存...");
+      showLoading(tabId, "show", "正在清空 Temu 缓存...");
 
       try {
         // 1. 清除 localStorage 和 sessionStorage
@@ -3361,46 +3807,55 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             } catch (e) {
               return { success: false, error: e.toString() };
             }
-          }
+          },
         });
 
         // 2. 清除 Cookies
         // 获取所有相关 cookie (temu.com 和 .temu.com)
         const allCookies = await chrome.cookies.getAll({});
-        const temuCookies = allCookies.filter(c => c.domain.includes('temu.com'));
+        const temuCookies = allCookies.filter((c) =>
+          c.domain.includes("temu.com"),
+        );
 
         const cookiePromises = temuCookies.map((cookie) => {
           // 构建正确的 URL 以便删除 cookie
-          const cookieUrl = "http" + (cookie.secure ? "s" : "") + "://" + cookie.domain + cookie.path;
+          const cookieUrl =
+            "http" +
+            (cookie.secure ? "s" : "") +
+            "://" +
+            cookie.domain +
+            cookie.path;
           return chrome.cookies.remove({
             url: cookieUrl,
-            name: cookie.name
+            name: cookie.name,
           });
         });
 
         await Promise.all(cookiePromises);
 
-        log('[ContextMenu] Temu 缓存清理完成，清除 Cookie 数量:', cookiePromises.length);
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'success', 'Temu 缓存已清空，页面即将刷新');
+        log(
+          "[ContextMenu] Temu 缓存清理完成，清除 Cookie 数量:",
+          cookiePromises.length,
+        );
+        showLoading(tabId, "hide");
+        showToast(tabId, "success", "Temu 缓存已清空，页面即将刷新");
 
         // 3. 刷新页面
         setTimeout(() => {
           chrome.tabs.reload(tabId);
         }, 1000);
-
       } catch (error) {
-        log('[ContextMenu] 清空缓存失败:', serializeError(error));
-        showLoading(tabId, 'hide');
-        showToast(tabId, 'error', '清空缓存失败: ' + error.message);
+        log("[ContextMenu] 清空缓存失败:", serializeError(error));
+        showLoading(tabId, "hide");
+        showToast(tabId, "error", "清空缓存失败: " + error.message);
       }
       return;
     } else {
       // 其他未知菜单项（目前理论上不会出现）
-      log('[ContextMenu] 未知的菜单项 ID（目前应不存在）:', info.menuItemId);
+      log("[ContextMenu] 未知的菜单项 ID（目前应不存在）:", info.menuItemId);
     }
   } catch (error) {
-    log('[ContextMenu] 处理右键菜单点击失败:', serializeError(error));
+    log("[ContextMenu] 处理右键菜单点击失败:", serializeError(error));
   }
 });
 
@@ -3420,5 +3875,5 @@ if (chrome.runtime.onStartup) {
 try {
   initContextMenus();
 } catch (error) {
-  log('[ContextMenu] 初始化右键菜单失败:', serializeError(error));
+  log("[ContextMenu] 初始化右键菜单失败:", serializeError(error));
 }

@@ -46,6 +46,19 @@ export const API_ENDPOINTS = {
     DELETE: "/sentences/:id",
     AI_ANALYZE: "/sentences/ai-analyze",
   },
+  EXTENSION_COLLECT: {
+    CREATE: "/extension-collect",
+    PAGE: "/extension-collect/page",
+    GET: "/extension-collect/:id",
+    UPDATE: "/extension-collect/:id",
+    DELETE: "/extension-collect/:id",
+    STAR: "/extension-collect/:id/star",
+    ARCHIVE: "/extension-collect/:id/archive",
+    STATISTICS: "/extension-collect/statistics",
+  },
+  AI_API_KEY: {
+    GET_FOR_FEATURE: "/user/get-api-key",
+  },
 } as const;
 
 export const CLIENT_ENDPOINTS = {
