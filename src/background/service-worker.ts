@@ -2592,9 +2592,21 @@ async function handleOAuthCallback(code: string, redirectUri: string): Promise<s
  */
 async function openOAuthAuthorizePage(): Promise<void> {
   const apiBaseUrl = await getApiBaseUrl();
-  const authorizeBaseUrl = apiBaseUrl.includes("localhost")
-    ? "http://localhost:1521"
-    : "https://admin.1s.design";
+  let authorizeBaseUrl = "https://admin.1s.design";
+  try {
+    const parsed = new URL(apiBaseUrl);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      authorizeBaseUrl = "http://localhost:1521";
+    } else if (parsed.hostname.endsWith("1s.design")) {
+      authorizeBaseUrl = "https://admin.1s.design";
+    } else {
+      authorizeBaseUrl = `${parsed.protocol}//${parsed.hostname}:1521`;
+    }
+  } catch {
+    if (apiBaseUrl.includes("localhost")) {
+      authorizeBaseUrl = "http://localhost:1521";
+    }
+  }
   const redirectUri = browser.runtime.getURL("/oauth-callback.html");
 
   const params = new URLSearchParams({

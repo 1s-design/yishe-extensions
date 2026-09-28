@@ -36,11 +36,23 @@ async function getApiBaseUrl(): Promise<string> {
 }
 
 /** 获取授权页面 URL */
-function getAuthorizeBaseUrl(apiBaseUrl: string): string {
-  if (apiBaseUrl.includes('localhost')) {
-    return 'http://localhost:1521'
+export function getAuthorizeBaseUrl(apiBaseUrl: string): string {
+  try {
+    const url = new URL(apiBaseUrl)
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      return 'http://localhost:1521'
+    }
+    if (url.hostname.endsWith('1s.design')) {
+      return 'https://admin.1s.design'
+    }
+    // 私有部署：自动推导到管理端同机 1521 端口
+    return `${url.protocol}//${url.hostname}:1521`
+  } catch {
+    if (apiBaseUrl.includes('localhost')) {
+      return 'http://localhost:1521'
+    }
+    return 'https://admin.1s.design'
   }
-  return 'https://admin.1s.design'
 }
 
 /** 获取回调地址 */

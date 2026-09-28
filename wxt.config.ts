@@ -46,7 +46,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         resources: ["oauth-callback.html"],
-        matches: ["http://localhost:1521/*", "https://admin.1s.design/*"],
+        matches: ["http://*/*", "https://*/*"],
       },
     ],
   },
