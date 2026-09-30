@@ -1,21 +1,14 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-import {
-  Monitor,
-  Refresh,
-  TopRight,
-  Setting,
-  Check,
-  Picture,
-} from "@element-plus/icons-vue";
+import { Monitor, Refresh, Picture } from "@element-plus/icons-vue";
 
 import { useActiveTab } from "@/composables/useActiveTab";
 import { useUserSession } from "@/composables/useUserSession";
 import { useWebsocketStatus } from "@/composables/useWebsocketStatus";
 import { useDevMode } from "@/composables/useDevMode";
 import { useImageHoverSetting } from "@/composables/useImageHoverSetting";
-import { openExtensionTab } from "@/shared/extension";
+import { navigateToExtensionPage, openExtensionTab } from "@/shared/extension";
 import type { SiteAction } from "@/shared/site-adapter/types";
 
 // 活跃页面感知与站点模块匹配
@@ -36,8 +29,15 @@ async function handleToggleHover(val: boolean | string | number) {
 
 
 // 会话与连接状态
-const { authenticated, userInfo } = useUserSession();
+const { authenticated, userInfo, refresh: refreshSession } = useUserSession();
 const { clientState, refresh: refreshConnections } = useWebsocketStatus();
+
+onMounted(async () => {
+  const loggedIn = await refreshSession();
+  if (!loggedIn) {
+    await navigateToExtensionPage("/login.html");
+  }
+});
 const { devMode } = useDevMode();
 
 const isInternalPage = computed(() => {
@@ -87,162 +87,90 @@ async function handleOpenControl() {
 
 // 刷新状态
 async function handleRefreshAll() {
-  await Promise.all([refreshTab(), refreshConnections()]);
+  await Promise.all([refreshTab(), refreshConnections(), refreshSession()]);
   ElMessage.success("已刷新");
 }
 </script>
 
 <template>
   <div class="sidepanel-app">
-    <!-- 极简顶部栏 -->
+    <!-- 顶部栏：纯文字，无边框无阴影 -->
     <header class="sp-navbar">
-      <div class="navbar-brand">
-        <img src="/assets/logo.png" alt="YiShe" class="navbar-logo" />
-        <span class="navbar-title">YiShe 设计助理</span>
-        <span v-if="devMode" class="dev-tag">DEV</span>
-      </div>
-
+      <span class="navbar-title">YiShe</span>
       <div class="navbar-actions">
         <button
           class="nav-btn"
           :class="{ 'is-active': imageHoverEnabled }"
-          :title="imageHoverEnabled ? '图片悬浮保存已开启 (点击可关闭)' : '图片悬浮保存已关闭 (点击可开启)'"
+          :title="imageHoverEnabled ? '图片悬浮保存已开启' : '图片悬浮保存已关闭'"
           @click="handleToggleHover(!imageHoverEnabled)"
         >
-          <el-icon><Picture /></el-icon>
+          <el-icon :size="14"><Picture /></el-icon>
         </button>
-        <button
-          class="nav-btn"
-          title="刷新信息"
-          @click="handleRefreshAll"
-        >
-          <el-icon><Refresh /></el-icon>
+        <button class="nav-btn" title="刷新" @click="handleRefreshAll">
+          <el-icon :size="14"><Refresh /></el-icon>
         </button>
-        <button
-          class="nav-btn"
-          title="打开完整控制台"
-          @click="handleOpenControl"
-        >
-          <el-icon><Monitor /></el-icon>
+        <button class="nav-btn" title="控制台" @click="handleOpenControl">
+          <el-icon :size="14"><Monitor /></el-icon>
         </button>
       </div>
     </header>
 
-    <!-- 当前网页上下文面板 -->
-    <section class="site-context-card">
-      <div class="site-info-row">
-        <div class="site-icon-wrapper">
-          <img
-            v-if="currentTab.favIconUrl && !isInternalPage"
-            :src="currentTab.favIconUrl"
-            alt="icon"
-            class="site-favicon"
-            @error="($event.target as HTMLElement).style.display = 'none'"
-          />
-          <span v-else class="site-fallback-icon">{{ matchedModule.icon || "🌐" }}</span>
-        </div>
+    <!-- 当前页面信息：纯文字行 -->
+    <div class="site-bar">
+      <span class="site-host">{{ isInternalPage ? "系统页" : currentTab.hostname }}</span>
+      <span class="site-title">{{ currentTab.title || "就绪" }}</span>
+    </div>
 
-        <div class="site-details">
-          <div class="site-host-line">
-            <strong class="site-hostname">{{ isInternalPage ? "浏览器系统页" : currentTab.hostname }}</strong>
-            <span v-if="matchedModule.id !== 'common' && !isInternalPage" class="module-badge">
-              {{ matchedModule.name }}
-            </span>
-          </div>
-          <p class="site-page-title" :title="currentTab.title">
-            {{ currentTab.title || "YiShe 助理已就绪" }}
-          </p>
-        </div>
-      </div>
+    <!-- 图片悬浮保存快捷开关 -->
+    <div class="hover-toggle">
+      <span class="hover-label">图片悬浮保存</span>
+      <el-switch
+        :model-value="imageHoverEnabled"
+        :loading="hoverSettingLoading"
+        size="small"
+        inline-prompt
+        active-text="开"
+        inactive-text="关"
+        @change="handleToggleHover"
+      />
+    </div>
 
-      <!-- 图片悬浮保存快捷控制 -->
-      <div class="sp-feature-toggle">
-        <div class="sp-feature-left">
-          <el-icon class="sp-feature-icon"><Picture /></el-icon>
-          <span class="sp-feature-title">图片悬浮保存</span>
-        </div>
-        <el-switch
-          :model-value="imageHoverEnabled"
-          :loading="hoverSettingLoading"
-          size="small"
-          inline-prompt
-          active-text="开"
-          inactive-text="关"
-          @change="handleToggleHover"
-        />
-      </div>
-    </section>
-
-    <!-- 站点适配与网页工具功能区 -->
+    <!-- 操作列表 -->
     <main class="actions-container">
-      <div v-if="isInternalPage" class="internal-tip-card">
-        <span>在普通网页上浏览时，将自动激活对应功能与素材工具</span>
+      <div v-if="isInternalPage" class="internal-tip">
+        在普通网页上浏览时将自动激活对应功能
       </div>
 
       <template v-else>
-        <div class="actions-header">
-          <span class="section-label">可用操作 ({{ matchedModule.name }})</span>
+        <div v-if="!matchedModule.actions.length" class="empty-tip">
+          当前站点暂无专属适配功能
         </div>
 
-        <div v-if="!matchedModule.actions.length" class="empty-site-card">
-          <span class="empty-dot" />
-          <span class="empty-text">当前站点暂无专属适配功能</span>
-        </div>
-
-        <div v-else class="action-list">
-          <div
+        <ul v-else class="action-list">
+          <li
             v-for="action in matchedModule.actions"
             :key="action.id"
-            class="action-card"
-            :class="{ 'is-primary': action.primary }"
+            class="action-item"
+            :class="{ 'is-primary': action.primary, 'is-loading': executingActionId === action.id }"
             @click="handleExecuteAction(action)"
           >
-            <div class="action-left">
-              <span class="action-icon">{{ action.icon || "⚡" }}</span>
-              <div class="action-text">
-                <div class="action-label-row">
-                  <span class="action-label">{{ action.label }}</span>
-                  <span v-if="action.badge" class="action-badge">{{ action.badge }}</span>
-                </div>
-                <p v-if="action.description" class="action-desc">
-                  {{ action.description }}
-                </p>
-              </div>
-            </div>
-
-            <div class="action-right">
-              <el-button
-                :type="action.primary ? 'primary' : 'default'"
-                size="small"
-                :loading="executingActionId === action.id"
-                class="action-btn"
-              >
-                {{ action.primary ? "立即运行" : "执行" }}
-              </el-button>
-            </div>
-          </div>
-        </div>
+            <span class="action-label">{{ action.label }}</span>
+            <span class="action-arrow">→</span>
+          </li>
+        </ul>
       </template>
     </main>
 
-    <!-- 极简底栏 -->
+    <!-- 底栏：纯文字状态 -->
     <footer class="sp-bottombar">
-      <div class="bottom-user">
-        <span class="user-status-dot" :class="{ online: authenticated }" />
-        <span class="user-name">
-          {{ authenticated ? (userInfo?.account || "已登录") : "未登录" }}
-        </span>
-      </div>
-
-      <div class="bottom-client">
-        <span
-          class="client-dot"
-          :class="{ active: clientState.status === 'connected' }"
-        />
-        <span class="client-text">
-          客户端 {{ clientState.status === "connected" ? "就绪" : "离线" }}
-        </span>
-      </div>
+      <span class="bottom-status">
+        <i class="status-dot" :class="authenticated ? 'online' : 'offline'" />
+        {{ authenticated ? (userInfo?.account || "已登录") : "未登录" }}
+      </span>
+      <span class="bottom-status">
+        <i class="status-dot" :class="clientState.status === 'connected' ? 'online' : 'offline'" />
+        客户端
+      </span>
     </footer>
   </div>
 </template>
@@ -252,377 +180,174 @@ async function handleRefreshAll() {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #f8fafc;
-  color: #1e293b;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #fff;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
 }
 
-/* 顶部导航 */
+/* 顶部栏 — 纯文字，无背景无边框 */
 .sp-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.navbar-logo {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
+  padding: 10px 14px;
 }
 
 .navbar-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.dev-tag {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: #fef3c7;
-  color: #d97706;
+  font-size: 13px;
   font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
 }
 
 .navbar-actions {
   display: flex;
-  gap: 6px;
+  gap: 2px;
 }
 
 .nav-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: #999;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  border-radius: 4px;
 }
 
 .nav-btn:hover {
-  color: #4f46e5;
-  border-color: #c7d2fe;
-  background: #f1f5f9;
-}
-
-/* 当前站点上下文卡片 */
-.site-context-card {
-  margin: 12px 14px 0 14px;
-  padding: 12px 14px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.site-info-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.site-icon-wrapper {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.site-favicon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.site-fallback-icon {
-  font-size: 18px;
-}
-
-.site-details {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.site-host-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.site-hostname {
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.module-badge {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  background: #e0e7ff;
-  color: #4338ca;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.site-page-title {
-  margin: 0;
-  font-size: 11px;
-  color: #64748b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sp-feature-toggle {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sp-feature-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sp-feature-icon {
-  font-size: 13px;
-  color: #4f46e5;
-}
-
-.sp-feature-title {
-  font-size: 11px;
-  font-weight: 500;
-  color: #334155;
+  color: #333;
+  background: #f5f5f5;
 }
 
 .nav-btn.is-active {
   color: #4f46e5;
-  background: #eef2ff;
-  border-color: #c7d2fe;
 }
 
-/* 功能列表区 */
-.actions-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 14px;
+/* 当前页面 — 纯文字行 */
+.site-bar {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.internal-tip-card {
-  padding: 24px 16px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px dashed #cbd5e1;
-  color: #64748b;
-  font-size: 12px;
-  text-align: center;
-  line-height: 1.6;
-}
-
-.empty-site-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: baseline;
   gap: 8px;
-  padding: 40px 16px;
-  color: #94a3b8;
-  font-size: 13px;
+  padding: 6px 14px;
 }
 
-.empty-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #cbd5e1;
-}
-
-.empty-text {
-  font-weight: 500;
-}
-
-.actions-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 2px 2px 2px;
-}
-
-.section-label {
+.site-host {
   font-size: 12px;
-  font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.3px;
-}
-
-.action-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.action-card:hover {
-  border-color: #cbd5e1;
-  background: #fcfcfd;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.action-card.is-primary {
-  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%);
-  border-color: #c7d2fe;
-}
-
-.action-card.is-primary:hover {
-  border-color: #a5b4fc;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
-}
-
-.action-card.is-tool-setting {
-  cursor: default;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.action-card.is-tool-setting:hover {
-  border-color: #94a3b8;
-  background: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
-.action-badge.is-active {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.action-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.action-icon {
-  font-size: 18px;
+  font-weight: 600;
+  color: #333;
   flex-shrink: 0;
 }
 
-.action-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.site-title {
+  font-size: 11px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.action-label-row {
+/* 悬浮保存开关 — 无边框扁平 */
+.hover-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid #f0f0f0;
 }
 
-.action-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.action-badge {
-  font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: #ede9fe;
-  color: #6d28d9;
-  font-weight: 500;
-}
-
-.action-desc {
-  margin: 0;
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.3;
-}
-
-.action-btn {
+.hover-label {
   font-size: 12px;
-  font-weight: 500;
+  color: #666;
 }
 
-/* 极简底部栏 */
+/* 操作列表 — 纯文字列表，无卡片 */
+.actions-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  border-top: 1px solid #f0f0f0;
+}
+
+.internal-tip,
+.empty-tip {
+  padding: 24px 14px;
+  font-size: 12px;
+  color: #bbb;
+  text-align: center;
+}
+
+.action-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+
+.action-item:hover {
+  background: #f7f7f7;
+}
+
+.action-item.is-primary {
+  color: #4f46e5;
+}
+
+.action-item.is-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.action-arrow {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.action-item:hover .action-arrow {
+  color: #999;
+}
+
+/* 底栏 — 纯文字 */
 .sp-bottombar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: #ffffff;
-  border-top: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  border-top: 1px solid #f0f0f0;
   font-size: 11px;
-  color: #64748b;
+  color: #999;
 }
 
-.bottom-user,
-.bottom-client {
+.bottom-status {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.user-status-dot,
-.client-dot {
-  width: 6px;
-  height: 6px;
+.status-dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background-color: #cbd5e1;
+  background: #ccc;
 }
 
-.user-status-dot.online,
-.client-dot.active {
-  background-color: #10b981;
+.status-dot.online {
+  background: #52c41a;
+}
+
+.status-dot.offline {
+  background: #ccc;
 }
 </style>

@@ -28,7 +28,7 @@ onMounted(async () => {
   await refresh();
   const token = await ApiUtils.getToken();
   if (token) {
-    navigateToExtensionPage("/control.html");
+    navigateToExtensionPage("/sidepanel.html");
   }
 });
 
@@ -44,7 +44,7 @@ async function handleSubmit() {
   try {
     await ApiUtils.login(form.username.trim(), form.password, form.rememberMe);
     ElMessage.success("登录成功");
-    navigateToExtensionPage("/control.html");
+    navigateToExtensionPage("/sidepanel.html");
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "登录失败";
   } finally {

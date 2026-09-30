@@ -85,6 +85,10 @@ const STORAGE_DEV_WS_BASE_URL_KEY = "devWsBaseUrl";
 const STORAGE_WS_BASE_URL_KEY = "wsBaseUrl";
 const HEARTBEAT_INTERVAL = 15000;
 const HEARTBEAT_TIMEOUT = 10000;
+const KEEPALIVE_ALARM_NAME = "yishe-keepalive";
+const KEEPALIVE_INTERVAL_MIN = 1; // 1 分钟，远小于 SW 30s 空闲超时
+const RECONNECT_FALLBACK_ALARM_NAME = "yishe-reconnect-fallback";
+const RECONNECT_FALLBACK_DELAY_MIN = 0.5; // 30s 后兜底重连
 
 // 从配置文件获取 URL（如果配置文件加载失败，保持为空，避免误发到真实第三方服务）
 const FEISHU_WEBHOOK_URL =
@@ -1141,6 +1145,15 @@ async function ensureClientMetadata() {
       device: {
         memory: self.navigator?.deviceMemory,
         hardwareConcurrency: self.navigator?.hardwareConcurrency,
+        touchPoints: self.navigator?.maxTouchPoints,
+      },
+      screen: {
+        width: self.screen?.width,
+        height: self.screen?.height,
+        availWidth: self.screen?.availWidth,
+        availHeight: self.screen?.availHeight,
+        pixelRatio: self.devicePixelRatio,
+        colorDepth: self.screen?.colorDepth,
       },
     };
 
@@ -1211,13 +1224,47 @@ function buildConnectionAuth(token, metadata) {
   return Object.keys(auth).length ? auth : undefined;
 }
 
-function emitClientInfo(extraPayload) {
+async function enrichWithActiveTab(payload) {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    const activeTab = tabs?.[0];
+    if (activeTab?.url) {
+      return {
+        ...payload,
+        page: {
+          title: activeTab.title || undefined,
+          href: activeTab.url,
+          origin: (() => {
+            try {
+              return new URL(activeTab.url).origin;
+            } catch {
+              return undefined;
+            }
+          })(),
+          path: (() => {
+            try {
+              return new URL(activeTab.url).pathname;
+            } catch {
+              return undefined;
+            }
+          })(),
+        },
+      };
+    }
+  } catch (error) {
+    log("获取活跃标签页失败:", serializeError(error));
+  }
+  return payload;
+}
+
+async function emitClientInfo(extraPayload) {
   if (!clientMetadata || !socket || !socket.connected) {
     return;
   }
-  const payload = extraPayload
+  const basePayload = extraPayload
     ? { ...clientMetadata, ...extraPayload }
     : clientMetadata;
+  const payload = await enrichWithActiveTab(basePayload);
   try {
     socket.emit("client-info", payload);
   } catch (error) {
@@ -1625,11 +1672,12 @@ async function initWebsocket() {
   });
 
   socket.io.on("reconnect_failed", () => {
-    log("重连失败");
+    log("重连失败，等待兜底机制重建连接");
     updateWsState({
       status: "error",
       lastError: "Reconnect failed",
     });
+    scheduleReconnectFallback();
   });
 
   socket.io.on("reconnect_error", (error) => {
@@ -1649,6 +1697,11 @@ async function initWebsocket() {
       connectedAt: null,
       lastError: reason || null,
     });
+    // server 主动断开或 transport 关闭时，Socket.IO 内置重连会启动，
+    // 但 SW 被终止后内置重连也会丢失，因此用 alarms 兜底重建。
+    if (reason === "io server disconnect" || reason === "transport close") {
+      scheduleReconnectFallback();
+    }
   });
 
   socket.on("connect_error", (error) => {
@@ -4167,6 +4220,50 @@ if (chrome.runtime.onStartup) {
 // 在初始化函数中也调用一次（确保菜单存在）
 try {
   initContextMenus();
+  setupKeepalive();
 } catch (error) {
   log("[ContextMenu] 初始化右键菜单失败:", serializeError(error));
+}
+
+// ==================== Service Worker 保活 & 兜底重连 ====================
+
+/**
+ * Manifest V3 的 Service Worker 在空闲约 30s 后会被浏览器终止。
+ * 通过 chrome.alarms 定时唤醒，防止 SW 被杀后 WebSocket 永久断开。
+ */
+function setupKeepalive() {
+  try {
+    chrome.alarms?.create?.(KEEPALIVE_ALARM_NAME, {
+      periodInMinutes: KEEPALIVE_INTERVAL_MIN,
+    });
+    chrome.alarms?.onAlarm?.addListener(async (alarm) => {
+      if (alarm.name === KEEPALIVE_ALARM_NAME) {
+        // 保活：如果当前未连接，尝试重建
+        if (wsState.status !== "connected" && wsState.status !== "connecting") {
+          log("[KeepAlive] 检测到连接断开，尝试重建");
+          await connectWebsocketIfAuthenticated("keepalive");
+        }
+      }
+      if (alarm.name === RECONNECT_FALLBACK_ALARM_NAME) {
+        log("[KeepAlive] 兜底重连触发");
+        await connectWebsocketIfAuthenticated("reconnect-fallback");
+      }
+    });
+  } catch (error) {
+    log("[KeepAlive] 保活机制初始化失败:", serializeError(error));
+  }
+}
+
+/**
+ * 兜底重连：当 Socket.IO 内置重连失败或被 server 主动断开时，
+ * 延迟后触发一次全新的 connect，绕过旧的 socket 实例。
+ */
+function scheduleReconnectFallback() {
+  try {
+    chrome.alarms?.create?.(RECONNECT_FALLBACK_ALARM_NAME, {
+      delayInMinutes: RECONNECT_FALLBACK_DELAY_MIN,
+    });
+  } catch (error) {
+    log("[KeepAlive] 兜底重连调度失败:", serializeError(error));
+  }
 }
