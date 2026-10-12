@@ -6,6 +6,7 @@ import "@/content/core/ui-theme";
 import "@/content/core/page-image-collector";
 import "@/content/core/product-extractor";
 import "@/content/core/linked-image-uploader";
+import "@/content/core/area-screenshot";
 import "@/content/core/site-detector";
 import "@/content/core/floating-robot";
 import "@/content/sites/common";

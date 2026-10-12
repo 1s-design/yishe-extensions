@@ -88,6 +88,17 @@ window.CoreFloatingRobot = {
         },
       },
       {
+        icon: "✂️",
+        label: "网页截屏（拖拽框选）",
+        action: () => {
+          if (window.CoreAreaScreenshot?.start) {
+            window.CoreAreaScreenshot.start();
+          } else {
+            console.warn("[Core] 截屏模块未加载");
+          }
+        },
+      },
+      {
         icon: isHoverEnabled ? "🚫" : "⚡",
         label: isHoverEnabled ? "停用图片悬浮保存" : "开启图片悬浮保存",
         action: () => {

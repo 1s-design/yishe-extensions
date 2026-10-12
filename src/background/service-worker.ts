@@ -2440,6 +2440,71 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // 网页区域截屏：抓取当前可见画面（content script 无法直接调用 tabs API，由后台代劳）
+  if (request?.action === "captureVisibleTab") {
+    const windowId = sender?.tab?.windowId;
+    const captureOptions = { format: "png" };
+    const handleCapture = (dataUrl) => {
+      const runtimeError = chrome.runtime.lastError;
+      if (runtimeError) {
+        sendResponse({
+          success: false,
+          error: runtimeError.message || "截屏失败",
+        });
+        return;
+      }
+      if (!dataUrl) {
+        sendResponse({ success: false, error: "截屏失败：未获取到图像数据" });
+        return;
+      }
+      sendResponse({ success: true, data: { dataUrl } });
+    };
+
+    try {
+      if (typeof windowId === "number") {
+        chrome.tabs.captureVisibleTab(windowId, captureOptions, handleCapture);
+      } else {
+        chrome.tabs.captureVisibleTab(captureOptions, handleCapture);
+      }
+    } catch (error) {
+      sendResponse({ success: false, error: serializeError(error) });
+    }
+    return true;
+  }
+
+  // 网页区域截屏：下载到本地
+  if (request?.action === "downloadScreenshot") {
+    const dataUrl = String(request.dataUrl || "");
+    if (!dataUrl.startsWith("data:image/")) {
+      sendResponse({ success: false, error: "截图数据无效" });
+      return true;
+    }
+
+    const filename =
+      String(request.filename || "").trim() ||
+      `yishe-screenshot-${Date.now()}.png`;
+
+    try {
+      chrome.downloads.download(
+        { url: dataUrl, filename, saveAs: false },
+        (downloadId) => {
+          const runtimeError = chrome.runtime.lastError;
+          if (runtimeError) {
+            sendResponse({
+              success: false,
+              error: runtimeError.message || "下载失败",
+            });
+            return;
+          }
+          sendResponse({ success: true, data: { downloadId } });
+        },
+      );
+    } catch (error) {
+      sendResponse({ success: false, error: serializeError(error) });
+    }
+    return true;
+  }
+
   if (request?.action === "uploadImageToGallery") {
     const tabId = sender?.tab?.id ?? null;
     const imageUrl = normalizeUploadUrl(request.imageUrl);
