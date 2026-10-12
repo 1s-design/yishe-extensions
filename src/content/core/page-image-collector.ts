@@ -267,8 +267,8 @@
     const totalCount = state.items.length;
     const selectedCount = state.selectedUrls.size;
     refs.summary.textContent = totalCount
-      ? `${totalCount} 张 · 已选 ${selectedCount} · 爬图库`
-      : '未找到图片 · 爬图库';
+      ? `${totalCount} 张 · 已选 ${selectedCount} · 采集素材`
+      : '未找到图片 · 采集素材';
   }
 
   function updateButtonStates() {

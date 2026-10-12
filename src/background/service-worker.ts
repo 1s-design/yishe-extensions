@@ -301,7 +301,7 @@ const uploadingFiles = new Set();
 
 function buildImageUploadKey(imageUrl, target) {
   const normalizedUrl = String(imageUrl || "").trim();
-  const normalizedTarget = String(target || "sticker").trim();
+  const normalizedTarget = String(target || "crawler-material").trim();
   return `${normalizedTarget}::${normalizedUrl}`;
 }
 
@@ -2519,10 +2519,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (!access.allowed) {
           throw new Error(access.reason);
         }
-        if (isImageUploading(imageUrl, "sticker")) {
-          throw new Error("这张图片正在上传，请稍候");
+        if (isImageUploading(imageUrl, "crawler-material")) {
+          throw new Error("这张图片正在采集，请稍候");
         }
-        return performUpload(tabId, imageUrl, "sticker", {
+        return performUpload(tabId, imageUrl, "crawler-material", {
           showLoadingOverlay: false,
         });
       })
@@ -2812,27 +2812,19 @@ function initContextMenus() {
       contexts: ["selection"],
     });
 
-    // 1-3）上传图片到图片素材库
-    chrome.contextMenus.create({
-      id: "upload-image-to-sticker",
-      parentId: "yishe-group-collect",
-      title: "上传到图片素材库",
-      contexts: ["image"],
-    });
-
-    // 1-4）上传图片到爬图素材库
+    // 1-3）采集图片到采集素材库（所有采集统一入采集素材）
     chrome.contextMenus.create({
       id: "upload-image-to-crawler-material",
       parentId: "yishe-group-collect",
-      title: "上传到爬图素材库",
+      title: "采集到采集素材",
       contexts: ["image"],
     });
 
-    // 1-5）批量采集当前页图片到爬图素材库
+    // 1-4）批量采集当前页图片到采集素材库
     chrome.contextMenus.create({
       id: PAGE_IMAGE_COLLECTOR_MENU_ID,
       parentId: "yishe-group-collect",
-      title: "批量采集当前页图片到爬图库",
+      title: "批量采集当前页图片到采集素材",
       contexts: ["all"],
     });
 
@@ -2917,21 +2909,13 @@ async function copyToClipboard(text) {
   }
 }
 
-function resolveUploadTargetMeta(target) {
-  if (target === "crawler-material") {
-    return {
-      label: "YiShe 爬图素材库",
-      loadingMessage: "正在上传图片到 YiShe 爬图素材库...",
-      successMessage: "图片已上传到 YiShe 爬图素材库",
-      duplicateMessage: "图片正在上传到 YiShe 爬图素材库，请稍候...",
-    };
-  }
-
+function resolveUploadTargetMeta(_target) {
+  // 所有采集统一入采集素材库，不再区分图片素材库
   return {
-    label: "YiShe 图片素材库",
-    loadingMessage: "正在上传图片到 YiShe 图片素材库...",
-    successMessage: "图片已上传到 YiShe 图片素材库",
-    duplicateMessage: "图片正在上传到 YiShe 图片素材库，请稍候...",
+    label: "YiShe 采集素材",
+    loadingMessage: "正在采集到 YiShe 采集素材...",
+    successMessage: "已采集到 YiShe 采集素材",
+    duplicateMessage: "图片正在采集到 YiShe 采集素材，请稍候...",
   };
 }
 
@@ -3184,12 +3168,12 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
   for (let index = 0; index < normalizedUrls.length; index += 1) {
     const imageUrl = normalizedUrls[index];
     const current = index + 1;
-    const progressMessage = `正在采集到 YiShe 爬图素材库（${current}/${total}）...`;
+    const progressMessage = `正在采集到 YiShe 采集素材（${current}/${total}）...`;
 
     setTabBadge(tabId, "...", "#2563eb", progressMessage);
 
     let status = "success";
-    let itemMessage = "图片已上传到 YiShe 爬图素材库";
+    let itemMessage = "已采集到 YiShe 采集素材";
 
     try {
       if (isImageUploading(imageUrl, "crawler-material")) {
@@ -3956,7 +3940,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 3）批量采集当前页图片到 YiShe 爬图素材库
+    // 3）批量采集当前页图片到 YiShe 采集素材
     if (info.menuItemId === PAGE_IMAGE_COLLECTOR_MENU_ID) {
       const tabId = getTabId(tab);
       const pageUrl = tab?.url || info.pageUrl || "";
@@ -4135,18 +4119,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // 6）上传图片到 YiShe 图片素材 / 爬图素材
-    if (
-      info.menuItemId === "upload-image-to-sticker" ||
-      info.menuItemId === "upload-image-to-crawler-material"
-    ) {
+    // 6）采集图片到 YiShe 采集素材（所有采集统一入采集素材）
+    if (info.menuItemId === "upload-image-to-crawler-material") {
       const imageUrl = info.srcUrl || null;
       const pageUrl = info.pageUrl || tab?.url || null;
       const pageTitle = tab?.title || null;
-      const target =
-        info.menuItemId === "upload-image-to-crawler-material"
-          ? "crawler-material"
-          : "sticker";
+      const target = "crawler-material";
       const targetMeta = resolveUploadTargetMeta(target);
 
       const tabId = getTabId(tab);

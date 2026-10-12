@@ -463,7 +463,7 @@
         throw new Error((response && response.error) || '保存失败');
       }
       teardown();
-      notify('截图已保存到图片素材库', 'success');
+      notify('截图已采集到采集素材', 'success');
     } catch (error) {
       setBusy(buttons, false);
       notify((error && error.message) || '保存失败', 'error');
