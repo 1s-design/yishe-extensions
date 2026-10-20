@@ -3136,7 +3136,7 @@ async function getUserApiKeyFromServer(feature) {
 
     const result = await apiUtils.apiRequest("/user/get-api-key", {
       method: "POST",
-      body: JSON.stringify({ feature: feature || "extension_collect" }),
+      body: JSON.stringify({ feature: feature || "extension.collect" }),
     });
 
     log("[GetUserApiKey] 获取成功:", result);

@@ -183,7 +183,7 @@ window.CoreSiteModules.productCollector = {
   async fetchUserApiKey() {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
-        { action: "getUserApiKey", feature: "extension_collect" },
+        { action: "getUserApiKey", feature: "extension.collect" },
         (response) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
