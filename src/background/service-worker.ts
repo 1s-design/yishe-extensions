@@ -3163,6 +3163,7 @@ async function collectPageImagesToCrawler(tabId, imageUrls) {
   notifyPageImageCollectorProgress(tabId, {
     phase: "start",
     total,
+    urls: normalizedUrls,
   });
 
   for (let index = 0; index < normalizedUrls.length; index += 1) {
