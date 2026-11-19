@@ -16,6 +16,38 @@
   display: block !important;
 }
 
+/* 悬浮图片时的虚线描边：与保存按钮同步显隐，不拦截页面事件 */
+#yishe-linked-image-upload-highlight {
+  position: fixed !important;
+  display: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 2px dashed #60a5fa !important;
+  border-radius: 4px !important;
+  background: rgba(37, 99, 235, 0.05) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.85),
+    0 2px 10px rgba(37, 99, 235, 0.25) !important;
+  pointer-events: none !important;
+  z-index: 2147483646 !important;
+}
+
+#yishe-linked-image-upload-highlight.is-visible {
+  display: block !important;
+  animation: yishe-linked-image-upload-highlight-in 0.14s ease !important;
+}
+
+@keyframes yishe-linked-image-upload-highlight-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 #yishe-linked-image-upload-root .yishe-linked-image-upload-button {
   all: unset !important;
   box-sizing: border-box !important;
@@ -140,6 +172,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #yishe-linked-image-upload-highlight.is-visible {
+    animation: none !important;
+  }
+
   #yishe-linked-image-upload-root .yishe-linked-image-upload-button {
     transition: none !important;
   }

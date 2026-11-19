@@ -7,6 +7,7 @@
   }
 
   const ROOT_ID = "yishe-linked-image-upload-root";
+  const HIGHLIGHT_ID = "yishe-linked-image-upload-highlight";
   const STORAGE_KEY = "imageHoverEnabled";
   const IMAGE_EXTENSION_PATTERN =
     /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|webp)$/i;
@@ -247,7 +248,18 @@
     return root;
   }
 
+  // 独立的描边覆盖层：不改页面元素自身的样式，也不会被父级 overflow: hidden 裁掉
+  function createHighlight() {
+    const highlight = document.createElement("div");
+    highlight.id = HIGHLIGHT_ID;
+    highlight.setAttribute("aria-hidden", "true");
+    highlight.setAttribute("data-yishe-extension-ui", "linked-image-uploader");
+    document.documentElement.appendChild(highlight);
+    return highlight;
+  }
+
   const root = createRoot();
+  const highlight = createHighlight();
   const button = root.querySelector("button");
   const label = root.querySelector(".yishe-linked-image-upload-label");
 
@@ -275,6 +287,29 @@
     }
   }
 
+  function hideHighlight() {
+    highlight.classList.remove("is-visible");
+  }
+
+  // 用按钮定位用的同一个 rect 画虚线框，随滚动/缩放一起更新；超出视口的部分裁到视口内
+  function syncHighlight(rect) {
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(window.innerWidth || innerWidth, rect.right);
+    const bottom = Math.min(window.innerHeight || innerHeight, rect.bottom);
+
+    if (right - left <= 0 || bottom - top <= 0) {
+      hideHighlight();
+      return;
+    }
+
+    highlight.style.left = `${left}px`;
+    highlight.style.top = `${top}px`;
+    highlight.style.width = `${right - left}px`;
+    highlight.style.height = `${bottom - top}px`;
+    highlight.classList.add("is-visible");
+  }
+
   function hide() {
     if (state.uploading) {
       return;
@@ -285,6 +320,7 @@
       state.positionFrame = null;
     }
     root.classList.remove("is-visible");
+    hideHighlight();
     state.activeHoverTarget = null;
     state.sourceElement = null;
     state.imageUrl = "";
@@ -295,6 +331,8 @@
     state.enabled = nextEnabled !== false;
     if (!state.enabled) {
       hide();
+      // 上传中 hide() 会提前返回，开关关掉时仍要强制收掉描边
+      hideHighlight();
       if (root) {
         root.classList.remove("is-visible");
         root.style.setProperty("display", "none", "important");
@@ -330,6 +368,8 @@
       hide();
       return;
     }
+
+    syncHighlight(rect);
 
     const buttonWidth = root.offsetWidth || 52;
     const buttonHeight = root.offsetHeight || 22;
